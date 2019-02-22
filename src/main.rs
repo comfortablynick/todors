@@ -1,6 +1,7 @@
 use env_logger;
 use log::info;
-use std::io::prelude::*;
+use regex::Regex;
+use std::io::prelude::{BufRead, Read};
 use std::{env, fs, io, path::PathBuf};
 
 struct Lines<R> {
@@ -35,6 +36,7 @@ fn main() -> io::Result<()> {
     env::set_var("RUST_LOG", "warning");
     env_logger::init();
 
+    let _re = Regex::new(r"\d{4}-\d{2}-\d{2}").unwrap();
     let home = dirs::home_dir().expect("error getting home dir!");
     let mut path = PathBuf::from(home);
     path.push("Dropbox");
@@ -47,8 +49,15 @@ fn main() -> io::Result<()> {
     let mut lines = Lines::new(file);
     while let Some(line) = lines.next() {
         let line = line?;
+
+        // Example regex
+        // let caps = re.captures(&line);
+        // match caps {
+        //     Some(c) => println!("Date found! {:?}", c),
+        //     None => (),
+        // }
+
         println!("{}", line);
     }
-
     Ok(())
 }
