@@ -1,3 +1,4 @@
+// use colored::*;
 use env_logger;
 use log::info;
 use regex::Regex;
@@ -36,7 +37,8 @@ fn main() -> io::Result<()> {
     env::set_var("RUST_LOG", "warning");
     env_logger::init();
 
-    let _re = Regex::new(r"\d{4}-\d{2}-\d{2}").unwrap();
+    let _re_date = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
+    let _re_project = Regex::new(r"(?P<first>.*)(?P<project>\+.*)(?P<last>.*)").unwrap();
     let home = dirs::home_dir().expect("error getting home dir!");
     let mut path = PathBuf::from(home);
     path.push("Dropbox");
@@ -51,11 +53,13 @@ fn main() -> io::Result<()> {
         let line = line?;
 
         // Example regex
-        // let caps = re.captures(&line);
+        // let caps = _re.captures(&line);
         // match caps {
         //     Some(c) => println!("Date found! {:?}", c),
         //     None => (),
         // }
+        // let line = _re_date.replace_all(&line, "$m/$d/$y");
+        let line = _re_project.replace_all(&line, "$first**$project**$last");
 
         println!("{}", line);
     }
