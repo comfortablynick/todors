@@ -1,79 +1,59 @@
+// #![allow(unused_imports)]
+#![allow(dead_code)]
 use ansi_term::Color::Fixed;
 use env_logger;
 use log::info;
 use regex::{Captures, Regex};
-use std::io::prelude::{BufRead, Read};
+use std::io::prelude::BufRead;
 use std::{env, fs, io, path::PathBuf};
 
 const LIME: u8 = 154;
 const LIGHTORANGE: u8 = 215;
 
-struct Lines<R> {
-    reader: io::BufReader<R>,
-    buf: String,
-    length: u32,
+const RE_PROJECT: &str = r"(\+\w+)";
+const RE_CONTEXT: &str = r"(.*)(@\S+)(.*)";
+
+type AnyResult<T> = Result<T, Box<std::error::Error>>;
+
+fn format_line_output(line: &str) -> Result<String, regex::Error> {
+    // REGEXES
+    // let re_date = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
+    let re_project = Regex::new(RE_PROJECT)?;
+    let re_context = Regex::new(RE_CONTEXT)?;
+    let line = re_project.replace_all(&line, |c: &Captures| {
+        format!("{}", Fixed(LIME).paint(&c[0]))
+    });
+    let line = re_context.replace_all(&line, |caps: &Captures| {
+        format!(
+            "{}{}{}",
+            &caps[1],
+            Fixed(LIGHTORANGE).paint(&caps[2]),
+            &caps[3]
+        )
+    });
+    Ok(line.to_string())
 }
 
-impl<R: Read> Lines<R> {
-    fn new(r: R) -> Lines<R> {
-        Lines {
-            reader: io::BufReader::new(r),
-            buf: String::new(),
-            length: 0,
-        }
-    }
-    fn next<'a>(&'a mut self) -> Option<io::Result<&'a str>> {
-        self.buf.clear();
-        match self.reader.read_line(&mut self.buf) {
-            Ok(nbytes) => {
-                if nbytes == 0 {
-                    None // no more lines!
-                } else {
-                    let line = self.buf.trim_right();
-                    self.length += 1;
-                    Some(Ok(line))
-                }
-            }
-            Err(e) => Some(Err(e)),
-        }
-    }
-}
-
-fn main() -> io::Result<()> {
+fn main() -> Result<(), Box<std::error::Error>> {
     env::set_var("RUST_LOG", "warning");
     env_logger::init();
 
-    // let re_date = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
-    let re_project = Regex::new(r"(\+\w+)").unwrap();
-    let re_context = Regex::new(r"(.*)(@\S+)(.*)").unwrap();
-    let home = dirs::home_dir().expect("error getting home dir!");
+    let home = dirs::home_dir().ok_or("error getting home directory")?;
     let mut path = PathBuf::from(home);
     path.push("Dropbox");
     path.push("todo");
     path.push("todo.txt");
     info!("path to read: {:?}", &path);
 
-    let file = fs::File::open(&path)?;
-
-    let mut lines = Lines::new(file);
-    let mut ctr = 1;
-
-    while let Some(line) = lines.next() {
-        let line = line?;
-        let line = re_project.replace_all(&line, |c: &Captures| {
-            format!("{}", Fixed(LIME).paint(&c[0]))
-        });
-        let line = re_context.replace_all(&line, |caps: &Captures| {
-            format!(
-                "{}{}{}",
-                &caps[1],
-                Fixed(LIGHTORANGE).paint(&caps[2]),
-                &caps[3]
-            )
-        });
-        println!("{:02} {}", ctr, line);
+    let todo_file = io::BufReader::new(fs::File::open(path)?);
+    let lines = todo_file.lines();
+    let mut ctr = 0;
+    // TODO: read into string and do regex, then iterate to add counts and compare perf
+    for line in lines {
+        let line = format_line_output(&line?)?;
+        println!("{:02} {}", ctr + 1, line);
         ctr += 1;
     }
-    println!("--\nTODO: {} of {} tasks shown", ctr - 1, lines.length);
+    println!("--\nTODO: {} of {} tasks shown", ctr, ctr,);
     Ok(())
 }
