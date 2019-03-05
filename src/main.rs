@@ -1,5 +1,7 @@
-// #![allow(unused_imports)]
 #![allow(dead_code)]
+#[macro_use]
+extern crate lazy_static;
+
 use ansi_term::Color::Fixed;
 use env_logger;
 use log::info;
@@ -10,20 +12,22 @@ use std::{env, fs, io, path::PathBuf};
 const LIME: u8 = 154;
 const LIGHTORANGE: u8 = 215;
 
-const RE_PROJECT: &str = r"(\+\w+)";
-const RE_CONTEXT: &str = r"(.*)(@\S+)(.*)";
+// REGEXES
+// let re_date = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
+lazy_static! {
+    static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
+}
+lazy_static! {
+    static ref RE_CONTEXT: Regex = Regex::new(r"(.*)(@\S+)(.*)").unwrap();
+}
 
 type AnyResult<T> = Result<T, Box<std::error::Error>>;
 
 fn format_line_output(line: &str) -> Result<String, regex::Error> {
-    // REGEXES
-    // let re_date = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
-    let re_project = Regex::new(RE_PROJECT)?;
-    let re_context = Regex::new(RE_CONTEXT)?;
-    let line = re_project.replace_all(&line, |c: &Captures| {
+    let line = RE_PROJECT.replace_all(&line, |c: &Captures| {
         format!("{}", Fixed(LIME).paint(&c[0]))
     });
-    let line = re_context.replace_all(&line, |caps: &Captures| {
+    let line = RE_CONTEXT.replace_all(&line, |caps: &Captures| {
         format!(
             "{}{}{}",
             &caps[1],
