@@ -1,11 +1,10 @@
+#![allow(unused_variables)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
 #[macro_use]
 extern crate lazy_static;
 
 use ansi_term::Color::Fixed;
-// use env_logger;
-use getopts;
 use log::{debug, info, log_enabled, trace};
 use regex::{Captures, Regex};
 use std::{
@@ -14,18 +13,18 @@ use std::{
     path::PathBuf,
     process::exit,
 };
-use stderrlog;
+// use stderrlog;
+use loggerv;
+use structopt::StructOpt;
 
 /// Constants
-const VERSION: &'static str = "0.0.1";
-const AUTHOR: &'static str = "Nick Murphy <comfortablynick@gmail.com>";
 const LIME: u8 = 154;
 const LIGHTORANGE: u8 = 215;
 
 /// REGEXES
-// lazy_static! {
-//     static ref RE_DATE_ISO: Regex = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
-// }
+lazy_static! {
+    static ref RE_DATE_ISO: Regex = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
+}
 lazy_static! {
     static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
 }
@@ -35,7 +34,7 @@ lazy_static! {
 
 type AnyResult<T> = Result<T, Box<std::error::Error>>;
 
-fn format_line_output(line: &str) -> Result<String, regex::Error> {
+fn format_line_output(line: String) -> Result<String, regex::Error> {
     let line = RE_PROJECT.replace_all(&line, |c: &Captures| {
         format!("{}", Fixed(LIME).paint(&c[0]))
     });
@@ -50,53 +49,77 @@ fn format_line_output(line: &str) -> Result<String, regex::Error> {
     Ok(line.to_string())
 }
 
-fn print_version(program: &str) {
-    println!("{} {}", &program, &VERSION);
+/// Command line options
+#[derive(Debug, StructOpt)]
+#[structopt(
+    name = "todors",
+    about = "View and edit a file in todo.txt format",
+    raw(setting = "structopt::clap::AppSettings::ColoredHelp"),
+    raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage")
+)]
+struct Opt {
+    /// Verbose mode (-v, -vv, -vvv, etc.)
+    #[structopt(
+        short = "v",
+        long = "verbose",
+        parse(from_occurrences),
+        // default_value = "true true true true"
+    )]
+    verbose: u64,
+
+    /// Quiet debug messages
+    #[structopt(short = "q", long = "quiet")]
+    quiet: bool,
+
+    /// Usage information
+    #[structopt(long = "usage")]
+    usage: bool,
+
+    /// Use a config file othe rthan the default ~/.todo/config
+    #[structopt(short = "d", name = "CONFIG_FILE", parse(from_os_str))]
+    config_file: Option<PathBuf>,
+
+    /// List contents of todo.txt file
+    #[structopt(subcommand)]
+    cmd: Option<Command>,
 }
 
-fn print_usage(program: &str, opts: getopts::Options) {
-    print_version(program);
-    println!("{}\n", &AUTHOR);
-    let brief = format!("Usage: {} [OPTIONS]", program);
-    print!("{}", opts.usage(&brief));
+#[derive(StructOpt, Debug)]
+enum Command {
+    #[structopt(name = "list", visible_alias = "ls")]
+    /// List todos
+    List,
+
+    #[structopt(name = "listall", visible_alias = "lsa")]
+    /// List all todos
+    Listall,
 }
 
 fn main() -> Result<(), Box<std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    let program = args[0].clone();
-
-    let mut opts = getopts::Options::new();
-
-    // cli options
-    opts.optflag("h", "help", "display this message and exit");
-    opts.optflag("V", "version", "display version information and exit");
-    opts.optflagmulti(
-        "v",
-        "verbose",
-        "display verbose debug information (ex: '-vv' for INFO)",
-    );
-    opts.optopt("f", "todo-file", "use this todo.txt file", "NAME");
-
-    let matches = opts.parse(&args[1..])?;
-    let verbosity: usize = match matches.opt_count("v") {
-        0 => 0,
-        1 => 2,
-        2 => 3,
-        _ => 4,
+    // TODO: remove test vector after testing
+    let args: Vec<String> = if std::env::args().len() > 1 {
+        std::env::args().collect()
+    } else {
+        vec!["todors", "-vvvv"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
     };
-    stderrlog::new().verbosity(verbosity).quiet(false).init()?;
+    let opts = Opt::from_iter(args);
+    let verbosity = if opts.quiet { 0 } else { opts.verbose };
 
-    if matches.opt_present("h") {
-        print_usage(&program, opts);
-        exit(1);
-    }
+    loggerv::Logger::new()
+        .output(&log::Level::Error, loggerv::Output::Stderr)
+        .output(&log::Level::Warn, loggerv::Output::Stderr)
+        .output(&log::Level::Info, loggerv::Output::Stderr)
+        .output(&log::Level::Debug, loggerv::Output::Stderr)
+        .output(&log::Level::Trace, loggerv::Output::Stderr)
+        .line_numbers(true)
+        .level(true)
+        .verbosity(verbosity)
+        .init()?;
+    debug!("{:#?}", opts);
 
-    if matches.opt_present("V") {
-        println!("{} {}", &program, &VERSION);
-        exit(0);
-    }
-
-    debug!("{:#?}", &matches);
     let home = dirs::home_dir().ok_or("error getting home directory")?;
     let mut path = PathBuf::from(home);
     path.push("Dropbox");
@@ -104,12 +127,11 @@ fn main() -> Result<(), Box<std::error::Error>> {
     path.push("todo.txt");
     trace!("path to read: {:?}", &path);
 
-    let todo_file = BufReader::new(fs::File::open(path)?);
-    let lines = todo_file.lines();
+    let todo_file = fs::read_to_string(path)?;
+    let formatted = format_line_output(todo_file)?;
+    let lines = formatted.lines();
     let mut ctr = 0;
-    // TODO: read into string and do regex, then iterate to add counts and compare perf
     for line in lines {
-        let line = format_line_output(&line?)?;
         println!("{:02} {}", ctr + 1, line);
         ctr += 1;
     }
