@@ -1,53 +1,20 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
-#[macro_use]
-extern crate lazy_static;
 
 use ansi_term::Color::Fixed;
-use log::{debug, info, log_enabled, trace};
-use regex::{Captures, Regex};
+use log::{debug, error, info, log_enabled, trace, warn};
+use loggerv;
 use std::{
     env, fs,
     io::{prelude::BufRead, BufReader},
     path::PathBuf,
     process::exit,
 };
-// use stderrlog;
-use loggerv;
 use structopt::StructOpt;
+use todors::*;
 
-/// Constants
-const LIME: u8 = 154;
-const LIGHTORANGE: u8 = 215;
-
-/// REGEXES
-lazy_static! {
-    static ref RE_DATE_ISO: Regex = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
-}
-lazy_static! {
-    static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
-}
-lazy_static! {
-    static ref RE_CONTEXT: Regex = Regex::new(r"(.*)(@\S+)(.*)").unwrap();
-}
-
-type AnyResult<T> = Result<T, Box<std::error::Error>>;
-
-fn format_line_output(line: String) -> Result<String, regex::Error> {
-    let line = RE_PROJECT.replace_all(&line, |c: &Captures| {
-        format!("{}", Fixed(LIME).paint(&c[0]))
-    });
-    let line = RE_CONTEXT.replace_all(&line, |caps: &Captures| {
-        format!(
-            "{}{}{}",
-            &caps[1],
-            Fixed(LIGHTORANGE).paint(&caps[2]),
-            &caps[3]
-        )
-    });
-    Ok(line.to_string())
-}
+type AnyError = Box<dyn std::error::Error>;
 
 /// Command line options
 #[derive(Debug, StructOpt)]
@@ -59,12 +26,7 @@ fn format_line_output(line: String) -> Result<String, regex::Error> {
 )]
 struct Opt {
     /// Verbose mode (-v, -vv, -vvv, etc.)
-    #[structopt(
-        short = "v",
-        long = "verbose",
-        parse(from_occurrences),
-        // default_value = "true true true true"
-    )]
+    #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
     verbose: u64,
 
     /// Quiet debug messages
@@ -86,16 +48,40 @@ struct Opt {
 
 #[derive(StructOpt, Debug)]
 enum Command {
-    #[structopt(name = "list", visible_alias = "ls")]
+    /// Add line to todo.txt file
+    #[structopt(name = "add", visible_alias = "a")]
+    Add,
+
+    /// Add multiple lines to todo.txt file
+    #[structopt(name = "addm")]
+    Addm,
+
+    /// Add line of text to any file in the todo.txt directory
+    #[structopt(name = "addto")]
+    Addto,
+
+    /// Add text to end of the item
+    #[structopt(name = "append", visible_alias = "app")]
+    Append {
+        /// Append text to end of this line number
+        #[structopt(name = "item")]
+        item: u32,
+
+        /// Text to append (quotes optional)
+        #[structopt(name = "text")]
+        text: String,
+    },
+
     /// List todos
+    #[structopt(name = "list", visible_alias = "ls")]
     List,
 
-    #[structopt(name = "listall", visible_alias = "lsa")]
     /// List all todos
+    #[structopt(name = "listall", visible_alias = "lsa")]
     Listall,
 }
 
-fn main() -> Result<(), Box<std::error::Error>> {
+fn main() -> Result<(), AnyError> {
     // TODO: remove test vector after testing
     let args: Vec<String> = if std::env::args().len() > 1 {
         std::env::args().collect()
@@ -114,21 +100,17 @@ fn main() -> Result<(), Box<std::error::Error>> {
         .output(&log::Level::Info, loggerv::Output::Stderr)
         .output(&log::Level::Debug, loggerv::Output::Stderr)
         .output(&log::Level::Trace, loggerv::Output::Stderr)
+        .color(&log::Level::Trace, Fixed(GREY))
+        .color(&log::Level::Debug, Fixed(SKYBLUE))
+        .color(&log::Level::Info, Fixed(OLIVE))
         .line_numbers(true)
         .level(true)
         .verbosity(verbosity)
         .init()?;
     debug!("{:#?}", opts);
 
-    let home = dirs::home_dir().ok_or("error getting home directory")?;
-    let mut path = PathBuf::from(home);
-    path.push("Dropbox");
-    path.push("todo");
-    path.push("todo.txt");
-    trace!("path to read: {:?}", &path);
-
-    let todo_file = fs::read_to_string(path)?;
-    let formatted = format_line_output(todo_file)?;
+    let todo_file = TodoFile::new();
+    let formatted = format_colors(todo_file.contents)?;
     let lines = formatted.lines();
     let mut ctr = 0;
     for line in lines {
