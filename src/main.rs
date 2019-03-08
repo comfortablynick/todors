@@ -11,10 +11,13 @@ use std::{
     path::PathBuf,
     process::exit,
 };
-use structopt::StructOpt;
 use todors::*;
 
-type AnyError = Box<dyn std::error::Error>;
+/// Enable ANSI color support if compiled on Windows
+#[cfg(target_os = "windows")]
+fn enable_windows_ansi() -> Result<(), u32> {
+    ansi_term::enable_ansi_support()
+}
 
 fn main() -> Result<(), AnyError> {
     // TODO: remove test vector after testing
@@ -26,5 +29,6 @@ fn main() -> Result<(), AnyError> {
             .map(|s| s.to_string())
             .collect()
     };
+    let enabled = enable_windows_ansi();
     run(args)
 }
