@@ -48,7 +48,7 @@ pub struct Opt {
     #[structopt(long = "usage")]
     usage: bool,
 
-    /// Use a config file othe rthan the default ~/.todo/config
+    /// Use a config file other than the default ~/.todo/config
     #[structopt(short = "d", name = "CONFIG_FILE", parse(from_os_str))]
     config_file: Option<PathBuf>,
 
@@ -61,11 +61,27 @@ pub struct Opt {
 pub enum Command {
     /// Add line to todo.txt file
     #[structopt(name = "add", visible_alias = "a")]
-    Add,
+    Add {
+        #[structopt(name = "todo")]
+        /// Todo item
+        ///
+        /// "THING I NEED TO DO +project @context"
+        todo: String,
+    },
 
     /// Add multiple lines to todo.txt file
     #[structopt(name = "addm")]
-    Addm,
+    Addm {
+        /// Todo item(s)
+        ///
+        /// "FIRST THING I NEED TO DO +project1 @context{n}
+        /// SECOND THING I NEED TO DO +project2 @context"{n}{n}
+        /// Adds FIRST THING I NEED TO DO to your todo.txt on its own line and{n}
+        /// Adds SECOND THING I NEED TO DO to your todo.txt on its own line.{n}
+        /// Project and context notation optional.
+        #[structopt(name = "todo")]
+        todo: String,
+    },
 
     /// Add line of text to any file in the todo.txt directory
     #[structopt(name = "addto")]
