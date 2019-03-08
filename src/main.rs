@@ -3,8 +3,6 @@
 #![allow(dead_code)]
 
 use ansi_term::Color::Fixed;
-use log::{debug, error, info, log_enabled, trace, warn};
-use loggerv;
 use std::{
     env, fs,
     io::{prelude::BufRead, BufReader},

@@ -3,6 +3,7 @@
 extern crate lazy_static;
 
 use ansi_term::Color::Fixed;
+use chrono::Local;
 use env_logger::fmt::{Color, Style};
 use log::{debug, error, info, log_enabled, trace, warn, Level, LevelFilter};
 use regex::{Captures, Regex};
@@ -131,49 +132,52 @@ pub fn format_colors(line: String) -> Result<String, regex::Error> {
 }
 
 #[allow(dead_code)]
-fn init_loggerv(verbosity: u8) {
-    loggerv::Logger::new()
-        .output(&Level::Error, loggerv::Output::Stderr)
-        .output(&Level::Warn, loggerv::Output::Stderr)
-        .output(&Level::Info, loggerv::Output::Stderr)
-        .output(&Level::Debug, loggerv::Output::Stderr)
-        .output(&Level::Trace, loggerv::Output::Stderr)
-        .color(&Level::Trace, Fixed(GREY))
-        .color(&Level::Debug, Fixed(SKYBLUE))
-        .color(&Level::Info, Fixed(OLIVE))
-        .line_numbers(true)
-        .level(true)
-        .verbosity(verbosity as u64)
-        .init()
-        .expect("Initialize loggerv");
-}
-
-#[allow(dead_code)]
 fn init_env_logger(verbosity: u8) {
-    let mut log_builder = env_logger::Builder::new();
-    log_builder
+    env_logger::Builder::new()
         .format(|buf, record| {
-            let target = record.target();
             let mut level_style = buf.style();
-            let level = record.level();
-            match level {
-                Level::Trace => level_style.set_color(Color::Magenta).set_bold(false),
-                Level::Debug => level_style.set_color(Color::Blue).set_bold(true),
-                Level::Info => level_style.set_color(Color::Green).set_bold(true),
-                Level::Warn => level_style.set_color(Color::Yellow).set_bold(true),
+            match record.level() {
+                Level::Trace => level_style.set_color(Color::Black).set_intense(true),
+                Level::Debug => level_style.set_color(Color::White),
+                Level::Info => level_style.set_color(Color::Green),
+                Level::Warn => level_style.set_color(Color::Yellow),
                 Level::Error => level_style.set_color(Color::Red).set_bold(true),
             };
-            let mut style = buf.style();
-            let target =
-                style
-                    .set_bold(true)
-                    .value(format!("{: <width$}", target, width = target.len()));
+            let level = level_style.value(format!("{:>5}", record.level()));
+            // let tm_fmt = "%H:%M:%S%.6f";
+            // let tm_fmt = "%S%.6f";
+            // let tm_fmt = "%FT%H:%M:%S%.6f";
+            let tm_fmt = "%F %H:%M:%S";
+            let time = Local::now().format(tm_fmt);
+
+            let mut dim_white_style = buf.style();
+            dim_white_style.set_color(Color::White);
+
+            let mut subtle_style = buf.style();
+            subtle_style.set_color(Color::Black).set_intense(true);
+
             writeln!(
                 buf,
-                " {} {} > {}",
-                level_style.value(level),
-                target,
-                record.args(),
+                "\
+                 {lbracket}\
+                 {time}\
+                 {rbracket} \
+                 {level} \
+                 {lbracket}\
+                 {file}\
+                 {colon}\
+                 {line_no}\
+                 {rbracket} \
+                 {record_args}\
+                 ",
+                lbracket = subtle_style.value("["),
+                rbracket = subtle_style.value("]"),
+                colon = subtle_style.value(":"),
+                file = record.file().unwrap_or("<unnamed>"),
+                time = time,
+                level = level,
+                line_no = record.line().unwrap_or(0),
+                record_args = &record.args(),
             )
         })
         .filter(
@@ -189,15 +193,15 @@ fn init_env_logger(verbosity: u8) {
 }
 
 pub fn run(args: Vec<String>) -> Result<(), AnyError> {
-    let opts = Opt::from_iter(args);
+    let opts = Opt::from_iter(&args);
 
     // init logger if no -q
     if !opts.quiet {
-        // init_env_logger(opts.verbose);
-        init_loggerv(opts.verbose);
+        init_env_logger(opts.verbose);
     }
 
-    debug!("{:#?}", opts);
+    trace!("Running with args: {:?}", args);
+    debug!("Parsed options:\n{:#?}", opts);
 
     let todo_file = TodoFile::new();
     let formatted = format_colors(todo_file.contents)?;
