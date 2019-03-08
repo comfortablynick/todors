@@ -13,12 +13,6 @@ use std::{
 };
 use todors::*;
 
-/// Enable ANSI color support if compiled on Windows
-#[cfg(target_os = "windows")]
-fn enable_windows_ansi() -> Result<(), u32> {
-    ansi_term::enable_ansi_support()
-}
-
 fn main() -> Result<(), AnyError> {
     // TODO: remove test vector after testing
     let args: Vec<String> = if std::env::args().len() > 1 {
@@ -29,6 +23,8 @@ fn main() -> Result<(), AnyError> {
             .map(|s| s.to_string())
             .collect()
     };
-    let enabled = enable_windows_ansi();
+    // turn on ANSI escape support on Windows to use color
+    #[cfg(windows)]
+    ansi_term::enable_ansi_support().expect("Enable ANSI support on Windows");
     run(args)
 }

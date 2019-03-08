@@ -3,8 +3,10 @@
 extern crate lazy_static;
 
 use ansi_term::Color::Fixed;
-use log::{debug, error, info, log_enabled, trace, warn};
+use env_logger::fmt::{Color, Style};
+use log::{debug, error, info, log_enabled, trace, warn, Level, LevelFilter};
 use regex::{Captures, Regex};
+use std::io::Write;
 use std::{fs, path::PathBuf};
 use structopt::StructOpt;
 
@@ -35,7 +37,7 @@ pub type AnyError = Box<dyn std::error::Error + 'static>;
 pub struct Opt {
     /// Verbose mode (-v, -vv, -vvv, etc.)
     #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
-    verbose: u64,
+    verbose: u8,
 
     /// Quiet debug messages
     #[structopt(short = "q", long = "quiet")]
@@ -128,23 +130,73 @@ pub fn format_colors(line: String) -> Result<String, regex::Error> {
     Ok(line.to_string())
 }
 
-pub fn run(args: Vec<String>) -> Result<(), AnyError> {
-    let opts = Opt::from_iter(args);
-    let verbosity = if opts.quiet { 0 } else { opts.verbose };
-
+#[allow(dead_code)]
+fn init_loggerv(verbosity: u8) {
     loggerv::Logger::new()
-        .output(&log::Level::Error, loggerv::Output::Stderr)
-        .output(&log::Level::Warn, loggerv::Output::Stderr)
-        .output(&log::Level::Info, loggerv::Output::Stderr)
-        .output(&log::Level::Debug, loggerv::Output::Stderr)
-        .output(&log::Level::Trace, loggerv::Output::Stderr)
-        .color(&log::Level::Trace, Fixed(GREY))
-        .color(&log::Level::Debug, Fixed(SKYBLUE))
-        .color(&log::Level::Info, Fixed(OLIVE))
+        .output(&Level::Error, loggerv::Output::Stderr)
+        .output(&Level::Warn, loggerv::Output::Stderr)
+        .output(&Level::Info, loggerv::Output::Stderr)
+        .output(&Level::Debug, loggerv::Output::Stderr)
+        .output(&Level::Trace, loggerv::Output::Stderr)
+        .color(&Level::Trace, Fixed(GREY))
+        .color(&Level::Debug, Fixed(SKYBLUE))
+        .color(&Level::Info, Fixed(OLIVE))
         .line_numbers(true)
         .level(true)
-        .verbosity(verbosity)
-        .init()?;
+        .verbosity(verbosity as u64)
+        .init()
+        .expect("Initialize loggerv");
+}
+
+#[allow(dead_code)]
+fn init_env_logger(verbosity: u8) {
+    let mut log_builder = env_logger::Builder::new();
+    log_builder
+        .format(|buf, record| {
+            let target = record.target();
+            let mut level_style = buf.style();
+            let level = record.level();
+            match level {
+                Level::Trace => level_style.set_color(Color::Magenta).set_bold(false),
+                Level::Debug => level_style.set_color(Color::Blue).set_bold(true),
+                Level::Info => level_style.set_color(Color::Green).set_bold(true),
+                Level::Warn => level_style.set_color(Color::Yellow).set_bold(true),
+                Level::Error => level_style.set_color(Color::Red).set_bold(true),
+            };
+            let mut style = buf.style();
+            let target =
+                style
+                    .set_bold(true)
+                    .value(format!("{: <width$}", target, width = target.len()));
+            writeln!(
+                buf,
+                " {} {} > {}",
+                level_style.value(level),
+                target,
+                record.args(),
+            )
+        })
+        .filter(
+            Some("todors"),
+            match verbosity {
+                0 => LevelFilter::Warn,
+                1 => LevelFilter::Info,
+                2 => LevelFilter::Debug,
+                _ => LevelFilter::Trace,
+            },
+        )
+        .init();
+}
+
+pub fn run(args: Vec<String>) -> Result<(), AnyError> {
+    let opts = Opt::from_iter(args);
+
+    // init logger if no -q
+    if !opts.quiet {
+        // init_env_logger(opts.verbose);
+        init_loggerv(opts.verbose);
+    }
+
     debug!("{:#?}", opts);
 
     let todo_file = TodoFile::new();
