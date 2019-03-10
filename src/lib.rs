@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+#![allow(dead_code)]
 #[macro_use]
 extern crate lazy_static;
 
@@ -12,17 +13,19 @@ use std::{fs, path::PathBuf};
 use structopt::StructOpt;
 
 /// Colors
-pub const GREY: u8 = 246;
-pub const SKYBLUE: u8 = 111;
-pub const OLIVE: u8 = 113;
-pub const LIME: u8 = 154;
-pub const LIGHTORANGE: u8 = 215;
+const HOTPINK: u8 = 198;
+const GREY: u8 = 246;
+const SKYBLUE: u8 = 111;
+const OLIVE: u8 = 113;
+const LIME: u8 = 154;
+const LIGHTORANGE: u8 = 215;
 
 /// Regexes
 lazy_static! {
     static ref RE_DATE_ISO: Regex = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
     static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
     static ref RE_CONTEXT: Regex = Regex::new(r"(.*)(@\S+)(.*)").unwrap();
+    static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\)").unwrap();
 }
 
 pub type AnyError = Box<dyn std::error::Error + 'static>;
@@ -132,7 +135,22 @@ impl TodoFile {
     }
 }
 
-pub fn format_colors(line: String) -> Result<String, regex::Error> {
+fn format_priority(s: String) -> Result<String, AnyError> {
+    // TODO: look for better way to 'join' back to lines
+    let s = s
+        .lines()
+        .map(|ln| {
+            if RE_PRIORITY.is_match(ln) {
+                format!("{}\n", Fixed(HOTPINK).paint(ln))
+            } else {
+                format!("{}\n", ln)
+            }
+        })
+        .collect();
+    Ok(s)
+}
+
+fn format_colors(line: String) -> Result<String, regex::Error> {
     let line = RE_PROJECT.replace_all(&line, |c: &Captures| {
         format!("{}", Fixed(LIME).paint(&c[0]))
     });
@@ -147,8 +165,18 @@ pub fn format_colors(line: String) -> Result<String, regex::Error> {
     Ok(line.to_string())
 }
 
+fn print_todos(s: String) -> () {
+    let lines = s.lines();
+    let mut ctr = 0;
+    for line in lines {
+        println!("{:02} {}", ctr + 1, line);
+        ctr += 1;
+    }
+    println!("--\nTODO: {} of {} tasks shown", ctr, ctr,);
+}
+
 #[allow(dead_code)]
-fn init_env_logger(verbosity: u8) {
+fn init_logger(verbosity: u8) {
     env_logger::Builder::new()
         .format(|buf, record| {
             let mut level_style = buf.style();
@@ -213,20 +241,25 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     // init logger if no -q
     if !opts.quiet {
-        init_env_logger(opts.verbose);
+        init_logger(opts.verbose);
     }
 
     trace!("Running with args: {:?}", args);
     debug!("Parsed options:\n{:#?}", opts);
 
     let todo_file = TodoFile::new();
-    let formatted = format_colors(todo_file.contents)?;
-    let lines = formatted.lines();
-    let mut ctr = 0;
-    for line in lines {
-        println!("{:02} {}", ctr + 1, line);
-        ctr += 1;
-    }
-    println!("--\nTODO: {} of {} tasks shown", ctr, ctr,);
+    let lines = todo_file.contents;
+    // let lines: Vec<String> = todo_file
+    //     .contents
+    //     .lines()
+    //     .map(|ln| ln.to_string())
+    //     .collect();
+
+    let formatted = format_priority(lines)?;
+    let formatted = format_colors(formatted)?;
+    print_todos(formatted);
+    // let formatted = format_priority(lines)?;
+    // let formatted = format_colors(formatted)?;
+    // print_todos(formatted);
     Ok(())
 }
