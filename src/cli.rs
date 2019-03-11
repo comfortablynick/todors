@@ -15,14 +15,12 @@ const SKYBLUE: u8 = 111;
 const OLIVE: u8 = 113;
 const LIME: u8 = 154;
 const LIGHTORANGE: u8 = 215;
-
-/// Regexes
-lazy_static! {
-    static ref RE_DATE_ISO: Regex = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
-    static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
-    static ref RE_CONTEXT: Regex = Regex::new(r"(.*)(@\S+)(.*)").unwrap();
-    static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\)").unwrap();
-}
+// lazy_static! {
+//     static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
+//     static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
+//     static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\)").unwrap();
+//     static ref RE_DATE_ISO: Regex = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
+// }
 
 #[derive(Default)]
 pub struct TodoFile {
@@ -49,10 +47,12 @@ impl TodoFile {
     }
 }
 
-fn format_priority(s: String) -> Result<String, AnyError> {
+fn format_priority(s: String) -> String {
     // TODO: look for better way to 'join' back to lines
-    let s = s
-        .lines()
+    lazy_static! {
+        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\)").unwrap();
+    }
+    s.lines()
         .map(|ln| {
             if RE_PRIORITY.is_match(ln) {
                 format!("{}\n", Fixed(HOTPINK).paint(ln))
@@ -60,23 +60,29 @@ fn format_priority(s: String) -> Result<String, AnyError> {
                 format!("{}\n", ln)
             }
         })
-        .collect();
-    Ok(s)
+        .collect()
 }
 
-fn format_colors(line: String) -> Result<String, regex::Error> {
-    let line = RE_PROJECT.replace_all(&line, |c: &Captures| {
-        format!("{}", Fixed(LIME).paint(&c[0]))
+fn format_colors(s: String) -> String {
+    lazy_static! {
+        static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
+        static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
+    }
+    let s = RE_PROJECT.replace_all(&s, |c: &Captures| format!("{}", Fixed(LIME).paint(&c[0])));
+    let s = RE_CONTEXT.replace_all(&s, |caps: &Captures| {
+        format!("{}", Fixed(LIGHTORANGE).paint(&caps[0]),)
     });
-    let line = RE_CONTEXT.replace_all(&line, |caps: &Captures| {
-        format!(
-            "{}{}{}",
-            &caps[1],
-            Fixed(LIGHTORANGE).paint(&caps[2]),
-            &caps[3]
-        )
-    });
-    Ok(line.to_string())
+    s.to_string()
+}
+
+fn match_pri(s: &str) {
+    // TODO: use hash map/dict to match color from cap[0]
+    lazy_static! {
+        static ref RE_PRI: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
+    }
+    for cap in RE_PRI.captures_iter(s) {
+        debug!("Priority: {} | Todo: {}", &cap[1], &cap[0]);
+    }
 }
 
 fn print_todos(s: String) {
@@ -94,7 +100,6 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     // init logger if no -q
     if !opts.quiet {
-        // util::init_logger(opts.verbose);
         logger::Logger::init().expect("error initializing logger");
         log::set_max_level(match opts.verbose {
             0 => LevelFilter::Warn,
@@ -109,17 +114,9 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     let todo_file = TodoFile::new();
     let lines = todo_file.contents;
-    // let lines: Vec<String> = todo_file
-    //     .contents
-    //     .lines()
-    //     .map(|ln| ln.to_string())
-    //     .collect();
-
-    let formatted = format_priority(lines)?;
-    let formatted = format_colors(formatted)?;
+    match_pri(lines.as_str());
+    let formatted = format_priority(lines);
+    let formatted = format_colors(formatted);
     print_todos(formatted);
-    // let formatted = format_priority(lines)?;
-    // let formatted = format_colors(formatted)?;
-    // print_todos(formatted);
     Ok(())
 }
