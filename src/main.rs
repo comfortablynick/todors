@@ -13,6 +13,7 @@ use std::{
 };
 pub mod args;
 pub mod cli;
+pub mod logger;
 pub mod util;
 
 fn main() -> Result<(), util::AnyError> {

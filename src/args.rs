@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-pub use structopt::StructOpt;
+use structopt::StructOpt;
 
 /// Command line options
 #[derive(Debug, StructOpt)]

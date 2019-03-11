@@ -1,10 +1,7 @@
 // #![allow(unused_imports)]
 // #![allow(dead_code)]
 
-use crate::{
-    args,
-    util::{self, AnyError},
-};
+use crate::{args, logger, util::AnyError};
 use ansi_term::Color::Fixed;
 use log::{debug, error, info, log_enabled, trace, warn, Level, LevelFilter};
 use regex::{Captures, Regex};
@@ -97,7 +94,14 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     // init logger if no -q
     if !opts.quiet {
-        util::init_logger(opts.verbose);
+        // util::init_logger(opts.verbose);
+        logger::Logger::init().expect("error initializing logger");
+        log::set_max_level(match opts.verbose {
+            0 => LevelFilter::Warn,
+            1 => LevelFilter::Info,
+            2 => LevelFilter::Debug,
+            _ => LevelFilter::Trace,
+        });
     }
 
     trace!("Running with args: {:?}", args);
