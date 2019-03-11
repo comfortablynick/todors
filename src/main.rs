@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#[macro_use]
+extern crate lazy_static;
 
 use ansi_term::Color::Fixed;
 use std::{
@@ -9,9 +11,11 @@ use std::{
     path::PathBuf,
     process::exit,
 };
-use todors::*;
+pub mod args;
+pub mod cli;
+pub mod util;
 
-fn main() -> Result<(), AnyError> {
+fn main() -> Result<(), util::AnyError> {
     // TODO: remove test vector after testing
     let args: Vec<String> = if std::env::args().len() > 1 {
         std::env::args().collect()
@@ -24,5 +28,5 @@ fn main() -> Result<(), AnyError> {
     // turn on ANSI escape support on Windows to use color
     #[cfg(windows)]
     ansi_term::enable_ansi_support().expect("Enable ANSI support on Windows");
-    run(args)
+    cli::run(args)
 }
