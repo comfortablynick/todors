@@ -1,12 +1,10 @@
-// #![allow(unused_imports)]
-// #![allow(dead_code)]
-
 use crate::{args, logger, util::AnyError};
 use ansi_term::Color::Fixed;
 use log::{debug, error, info, log_enabled, trace, warn, Level, LevelFilter};
 use regex::{Captures, Regex};
-use std::{fs, path::PathBuf};
+use std::{fs, io::Write, path::PathBuf};
 use structopt::StructOpt;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// Colors
 const HOTPINK: u8 = 198;
@@ -15,6 +13,7 @@ const SKYBLUE: u8 = 111;
 const OLIVE: u8 = 113;
 const LIME: u8 = 154;
 const LIGHTORANGE: u8 = 215;
+const GREEN: u8 = 112;
 // lazy_static! {
 //     static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
 //     static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
@@ -47,22 +46,6 @@ impl TodoFile {
     }
 }
 
-fn format_priority(s: String) -> String {
-    // TODO: look for better way to 'join' back to lines
-    lazy_static! {
-        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\)").unwrap();
-    }
-    s.lines()
-        .map(|ln| {
-            if RE_PRIORITY.is_match(ln) {
-                format!("{}\n", Fixed(HOTPINK).paint(ln))
-            } else {
-                format!("{}\n", ln)
-            }
-        })
-        .collect()
-}
-
 fn format_colors(s: String) -> String {
     lazy_static! {
         static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
@@ -75,31 +58,50 @@ fn format_colors(s: String) -> String {
     s.to_string()
 }
 
-fn match_pri(s: &str) {
-    // TODO: use hash map/dict to match color from cap[0]
+// fn match_pri(s: &str) {
+//     lazy_static! {
+//         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
+//     }
+//     for cap in RE_PRIORITY.captures_iter(s) {
+//         let ch: u32 = cap[1].chars().next().expect("error getting priority") as u32;
+//         debug!("Priority: {}/{} | Todo: {}", &cap[1], ch - 64, &cap[0]);
+//     }
+// }
+
+fn format_priority(s: String) -> String {
     lazy_static! {
-        static ref RE_PRI: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
+        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
     }
-    for cap in RE_PRI.captures_iter(s) {
-        debug!("Priority: {} | Todo: {}", &cap[1], &cap[0]);
-    }
+    let s = RE_PRIORITY.replace_all(&s, |c: &Captures| {
+        format!("{}", Fixed(HOTPINK).paint(&c[0]))
+    });
+    s.to_string()
 }
 
 fn print_todos(s: String) {
     let lines = s.lines();
     let mut ctr = 0;
     for line in lines {
-        println!("{:02} {}", ctr + 1, line);
-        ctr += 1;
+        if line != "" {
+            println!("{:02} {}", ctr + 1, line);
+            ctr += 1;
+        }
     }
     println!("--\nTODO: {} of {} tasks shown", ctr, ctr,);
+}
+
+fn test_termcolor(s: &str) {
+    let mut buf = StandardStream::stderr(ColorChoice::Always);
+    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIGHTORANGE))))
+        .expect("error writing color to stdout");
+    writeln!(&mut buf, "{}", s).expect("error writing to buffer");
 }
 
 pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     let opts = args::Opt::from_iter(&args);
 
-    // init logger if no -q
     if !opts.quiet {
+        // init logger
         logger::Logger::init().expect("error initializing logger");
         log::set_max_level(match opts.verbose {
             0 => LevelFilter::Warn,
@@ -114,9 +116,9 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     let todo_file = TodoFile::new();
     let lines = todo_file.contents;
-    match_pri(lines.as_str());
     let formatted = format_priority(lines);
     let formatted = format_colors(formatted);
     print_todos(formatted);
+    test_termcolor("test orange text on stderr!");
     Ok(())
 }
