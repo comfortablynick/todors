@@ -90,11 +90,12 @@ fn print_todos(s: String) {
     println!("--\nTODO: {} of {} tasks shown", ctr, ctr,);
 }
 
-fn test_termcolor(s: &str) {
+fn test_termcolor(s: &str) -> Result<(), AnyError> {
     let mut buf = StandardStream::stderr(ColorChoice::Always);
-    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIGHTORANGE))))
-        .expect("error writing color to stdout");
+    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIGHTORANGE))))?;
     writeln!(&mut buf, "{}", s).expect("error writing to buffer");
+    buf.reset()?;
+    Ok(())
 }
 
 pub fn run(args: Vec<String>) -> Result<(), AnyError> {
@@ -119,6 +120,6 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     let formatted = format_priority(lines);
     let formatted = format_colors(formatted);
     print_todos(formatted);
-    test_termcolor("test orange text on stderr!");
+    test_termcolor("test orange text on stderr!")?;
     Ok(())
 }
