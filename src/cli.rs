@@ -2,9 +2,13 @@ use crate::{args, logger, util::AnyError};
 use ansi_term::Color::Fixed;
 use log::{debug, error, info, log_enabled, trace, warn, Level, LevelFilter};
 use regex::{Captures, Regex};
-use std::{fs, io::Write, path::PathBuf};
+use std::{
+    fs,
+    io::{self, Write},
+    path::PathBuf,
+};
 use structopt::StructOpt;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// Colors
 const HOTPINK: u8 = 198;
@@ -78,6 +82,47 @@ fn format_priority(s: String) -> String {
     s.to_string()
 }
 
+fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
+    lazy_static! {
+        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
+        static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
+        static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
+    }
+    let mut buf = bufwtr.buffer();
+    for line in s.lines() {
+        // TODO: handle blank lines earlier
+        if line == "" {
+            continue;
+        }
+        // highlight priority
+        if RE_PRIORITY.is_match(line) {
+            buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(HOTPINK))))?;
+        } else {
+            buf.reset()?;
+        }
+        for word in line.split_whitespace() {
+            let first_char = word.chars().next();
+            match first_char {
+                Some('+') => {
+                    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIME))))?;
+                    write!(&mut buf, "{} ", word)?;
+                    // TODO: figure out how to unset color
+                }
+                Some('@') => {
+                    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIGHTORANGE))))?;
+                    write!(&mut buf, "{} ", word)?;
+                }
+                _ => {
+                    write!(&mut buf, "{} ", word)?;
+                }
+            }
+        }
+        write!(&mut buf, "\n")?;
+    }
+    bufwtr.print(&buf)?;
+    Ok(())
+}
+
 fn print_todos(s: String) {
     let lines = s.lines();
     let mut ctr = 0;
@@ -116,10 +161,14 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     debug!("Parsed options:\n{:#?}", opts);
 
     let todo_file = TodoFile::new();
-    let lines = todo_file.contents;
-    let formatted = format_priority(lines);
-    let formatted = format_colors(formatted);
-    print_todos(formatted);
-    test_termcolor("test orange text on stderr!")?;
+    let todo_file = todo_file.contents;
+
+    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+    format_buffer(todo_file, bufwtr)?;
+
+    // let formatted = format_priority(todo_file);
+    // let formatted = format_colors(formatted);
+    // print_todos(formatted);
+    // test_termcolor("test orange text on stderr!")?;
     Ok(())
 }
