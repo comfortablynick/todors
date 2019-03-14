@@ -96,7 +96,10 @@ fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
         }
         // highlight priority
         if RE_PRIORITY.is_match(line) {
-            buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(HOTPINK))))?;
+            let mut color = ColorSpec::new();
+            color.set_fg(Some(Color::Ansi256(HOTPINK)));
+            buf.set_color(&color)?;
+        // buf.set_color(ColorSpec::new().set_fg(None))?;
         } else {
             buf.reset()?;
         }
@@ -106,11 +109,13 @@ fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
                 Some('+') => {
                     buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIME))))?;
                     write!(&mut buf, "{} ", word)?;
+                    buf.reset()?;
                     // TODO: figure out how to unset color
                 }
                 Some('@') => {
                     buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIGHTORANGE))))?;
                     write!(&mut buf, "{} ", word)?;
+                    buf.reset()?;
                 }
                 _ => {
                     write!(&mut buf, "{} ", word)?;
