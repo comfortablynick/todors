@@ -1,6 +1,5 @@
 use crate::{args, logger, util::AnyError};
 use ansi_term::Color::Fixed;
-use log::{debug, error, info, log_enabled, trace, warn, Level, LevelFilter};
 use regex::{Captures, Regex};
 use std::{
     fs,
@@ -84,44 +83,53 @@ fn format_priority(s: String) -> String {
 
 fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
     lazy_static! {
-        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
+        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
         static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
         static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
     }
     let mut buf = bufwtr.buffer();
-    for line in s.lines() {
+    let mut color = ColorSpec::new();
+    let mut ctr = 0;
+    for ln in s.lines() {
+        let line = ln;
         // TODO: handle blank lines earlier
         if line == "" {
             continue;
         }
-        // highlight priority
-        if RE_PRIORITY.is_match(line) {
-            let mut color = ColorSpec::new();
+        ctr += 1;
+        let line = format!("{:02} {}", ctr, line);
+        if RE_PRIORITY.is_match(&line) {
+            let pri = RE_PRIORITY.captures(&line).unwrap();
+            log::info!("Priority: {}", &pri[1]);
             color.set_fg(Some(Color::Ansi256(HOTPINK)));
             buf.set_color(&color)?;
-        // buf.set_color(ColorSpec::new().set_fg(None))?;
         } else {
             buf.reset()?;
         }
         for word in line.split_whitespace() {
             let first_char = word.chars().next();
+            let prev_color = color.fg().cloned();
             match first_char {
                 Some('+') => {
-                    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIME))))?;
+                    color.set_fg(Some(Color::Ansi256(LIME)));
+                    buf.set_color(&color)?;
                     write!(&mut buf, "{} ", word)?;
-                    buf.reset()?;
-                    // TODO: figure out how to unset color
+                    color.set_fg(prev_color);
+                    buf.set_color(&color)?;
                 }
                 Some('@') => {
-                    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIGHTORANGE))))?;
+                    color.set_fg(Some(Color::Ansi256(LIGHTORANGE)));
+                    buf.set_color(&color)?;
                     write!(&mut buf, "{} ", word)?;
-                    buf.reset()?;
+                    color.set_fg(prev_color);
+                    buf.set_color(&color)?;
                 }
                 _ => {
                     write!(&mut buf, "{} ", word)?;
                 }
             }
         }
+        buf.reset()?;
         write!(&mut buf, "\n")?;
     }
     bufwtr.print(&buf)?;
@@ -155,15 +163,15 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
         // init logger
         logger::Logger::init().expect("error initializing logger");
         log::set_max_level(match opts.verbose {
-            0 => LevelFilter::Warn,
-            1 => LevelFilter::Info,
-            2 => LevelFilter::Debug,
-            _ => LevelFilter::Trace,
+            0 => log::LevelFilter::Warn,
+            1 => log::LevelFilter::Info,
+            2 => log::LevelFilter::Debug,
+            _ => log::LevelFilter::Trace,
         });
     }
 
-    trace!("Running with args: {:?}", args);
-    debug!("Parsed options:\n{:#?}", opts);
+    log::trace!("Running with args: {:?}", args);
+    log::debug!("Parsed options:\n{:#?}", opts);
 
     let todo_file = TodoFile::new();
     let todo_file = todo_file.contents;
