@@ -1,6 +1,7 @@
-use crate::{args, logger, util::AnyError};
+#![allow(dead_code)]
+use crate::{args, err, logger, util::AnyError};
 use ansi_term::Color::Fixed;
-use regex::{Captures, Regex};
+use regex::{self, Captures, Regex};
 use std::{
     fs,
     io::{self, Write},
@@ -16,38 +17,10 @@ const SKYBLUE: u8 = 111;
 const OLIVE: u8 = 113;
 const LIME: u8 = 154;
 const LIGHTORANGE: u8 = 215;
-const GREEN: u8 = 112;
-// lazy_static! {
-//     static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
-//     static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
-//     static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\)").unwrap();
-//     static ref RE_DATE_ISO: Regex = Regex::new(r"(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})").unwrap();
-// }
-
-#[derive(Default)]
-pub struct TodoFile {
-    pub path: PathBuf,
-    pub contents: String,
-}
-
-impl TodoFile {
-    pub fn new() -> TodoFile {
-        let file_path = TodoFile::get_path().unwrap();
-        TodoFile {
-            path: file_path.clone(),
-            contents: fs::read_to_string(file_path).unwrap(),
-        }
-    }
-
-    fn get_path() -> Result<PathBuf, AnyError> {
-        let home = dirs::home_dir().ok_or("error getting home directory")?;
-        let mut path: PathBuf = home;
-        path.push("Dropbox");
-        path.push("todo");
-        path.push("todo.txt");
-        Ok(path)
-    }
-}
+const GREEN: u8 = 2;
+const BLUE: u8 = 4;
+const TURQUOISE: u8 = 37;
+const TAN: u8 = 179;
 
 fn format_colors(s: String) -> String {
     lazy_static! {
@@ -61,24 +34,17 @@ fn format_colors(s: String) -> String {
     s.to_string()
 }
 
-// fn match_pri(s: &str) {
-//     lazy_static! {
-//         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
-//     }
-//     for cap in RE_PRIORITY.captures_iter(s) {
-//         let ch: u32 = cap[1].chars().next().expect("error getting priority") as u32;
-//         debug!("Priority: {}/{} | Todo: {}", &cap[1], ch - 64, &cap[0]);
-//     }
-// }
-
-fn format_priority(s: String) -> String {
-    lazy_static! {
-        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)^\((.)\).*$").unwrap();
-    }
-    let s = RE_PRIORITY.replace_all(&s, |c: &Captures| {
-        format!("{}", Fixed(HOTPINK).paint(&c[0]))
-    });
-    s.to_string()
+fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
+    let mut color = ColorSpec::new();
+    match c {
+        'A' => color.set_fg(Some(Color::Ansi256(HOTPINK))),
+        'B' => color.set_fg(Some(Color::Ansi256(GREEN))),
+        'C' => color.set_fg(Some(Color::Ansi256(BLUE))).set_bold(true),
+        'D' => color.set_fg(Some(Color::Ansi256(TURQUOISE))).set_bold(true),
+        'E'...'Z' => color.set_fg(Some(Color::Ansi256(TAN))),
+        _ => err!("color for priority '{}' not found!", &c),
+    };
+    Ok(color)
 }
 
 fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
@@ -99,9 +65,15 @@ fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
         ctr += 1;
         let line = format!("{:02} {}", ctr, line);
         if RE_PRIORITY.is_match(&line) {
-            let pri = RE_PRIORITY.captures(&line).unwrap();
-            log::info!("Priority: {}", &pri[1]);
-            color.set_fg(Some(Color::Ansi256(HOTPINK)));
+            // get priority
+            let caps = RE_PRIORITY.captures(&line).unwrap();
+            let pri = caps
+                .get(1)
+                .map_or("", |c| c.as_str())
+                .chars()
+                .next()
+                .unwrap();
+            color = get_priority_color(pri)?;
             buf.set_color(&color)?;
         } else {
             buf.reset()?;
@@ -150,10 +122,25 @@ fn print_todos(s: String) {
 
 fn test_termcolor(s: &str) -> Result<(), AnyError> {
     let mut buf = StandardStream::stderr(ColorChoice::Always);
-    buf.set_color(ColorSpec::new().set_fg(Some(Color::Ansi256(LIGHTORANGE))))?;
-    writeln!(&mut buf, "{}", s).expect("error writing to buffer");
+    for n in 0..255 {
+        buf.set_color(
+            ColorSpec::new()
+                .set_fg(Some(Color::Ansi256(n + 1)))
+                .set_bold(true),
+        )?;
+        writeln!(&mut buf, "{} {}", s, n + 1).expect("error writing to buffer");
+    }
     buf.reset()?;
     Ok(())
+}
+
+fn get_todo_file_path() -> Result<PathBuf, AnyError> {
+    let home = dirs::home_dir().ok_or("error getting home directory")?;
+    let mut path: PathBuf = home;
+    path.push("Dropbox");
+    path.push("todo");
+    path.push("todo.txt");
+    Ok(path)
 }
 
 pub fn run(args: Vec<String>) -> Result<(), AnyError> {
@@ -173,15 +160,14 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     log::trace!("Running with args: {:?}", args);
     log::debug!("Parsed options:\n{:#?}", opts);
 
-    let todo_file = TodoFile::new();
-    let todo_file = todo_file.contents;
+    let todo_file = fs::read_to_string(get_todo_file_path()?)?;
 
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     format_buffer(todo_file, bufwtr)?;
 
-    // let formatted = format_priority(todo_file);
-    // let formatted = format_colors(formatted);
-    // print_todos(formatted);
-    // test_termcolor("test orange text on stderr!")?;
+    // tests
+    // test_termcolor("test")?;
+    // assert_eq!(198, get_priority_color("A")?);
+
     Ok(())
 }

@@ -1,20 +1,14 @@
-#![allow(unused_variables)]
-#![allow(unused_imports)]
-#![allow(dead_code)]
 #[macro_use]
 extern crate lazy_static;
+mod args;
+mod cli;
+mod logger;
+mod util;
 
-use ansi_term::Color::Fixed;
-use std::{
-    env, fs,
-    io::{prelude::BufRead, BufReader},
-    path::PathBuf,
-    process::exit,
-};
-pub mod args;
-pub mod cli;
-pub mod logger;
-pub mod util;
+#[macro_export]
+macro_rules! err(
+    ($($arg:tt)*) => (return Err(std::io::Error::new(std::io::ErrorKind::Other, format!($($arg)*))))
+);
 
 fn main() -> Result<(), util::AnyError> {
     // TODO: remove test vector after testing
