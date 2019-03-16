@@ -162,8 +162,12 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
 
+    let lines = todo_file.lines().collect::<Vec<&str>>();
+    // TODO: any processing before format/display
+    // can be done on this vector, such as `lines.sort()`
+    let todos = lines.join("\n");
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    format_buffer(todo_file, bufwtr)?;
+    format_buffer(todos, bufwtr)?;
 
     // tests
     // test_termcolor("test")?;
