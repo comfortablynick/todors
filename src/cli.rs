@@ -47,7 +47,7 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
     Ok(color)
 }
 
-fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
+fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
         static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
@@ -55,15 +55,9 @@ fn format_buffer(s: String, bufwtr: BufferWriter) -> Result<(), AnyError> {
     }
     let mut buf = bufwtr.buffer();
     let mut color = ColorSpec::new();
-    let mut ctr = 0;
-    for ln in s.lines() {
+    // let mut ctr = 0;
+    for ln in s {
         let line = ln;
-        // TODO: handle blank lines earlier
-        if line == "" {
-            continue;
-        }
-        ctr += 1;
-        let line = format!("{:02} {}", ctr, line);
         if RE_PRIORITY.is_match(&line) {
             // get priority
             let caps = RE_PRIORITY.captures(&line).unwrap();
@@ -162,16 +156,17 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
 
-    let lines = todo_file.lines().collect::<Vec<&str>>();
-    // TODO: any processing before format/display
-    // can be done on this vector, such as `lines.sort()`
-    let todos = lines.join("\n");
-    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    format_buffer(todos, bufwtr)?;
+    let mut ctr = 0;
+    let lines = todo_file
+        .lines()
+        .map(|ln| {
+            ctr += 1;
+            format!("{:02} {}", ctr, ln)
+        })
+        .collect::<Vec<String>>();
 
-    // tests
-    // test_termcolor("test")?;
-    // assert_eq!(198, get_priority_color("A")?);
+    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+    format_buffer(lines, bufwtr)?;
 
     Ok(())
 }
