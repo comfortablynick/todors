@@ -128,6 +128,7 @@ fn test_termcolor(s: &str) -> Result<(), AnyError> {
     Ok(())
 }
 
+/// Gets path based on default location
 fn get_todo_file_path() -> Result<PathBuf, AnyError> {
     let home = dirs::home_dir().ok_or("error getting home directory")?;
     let mut path: PathBuf = home;
@@ -137,6 +138,7 @@ fn get_todo_file_path() -> Result<PathBuf, AnyError> {
     Ok(path)
 }
 
+/// Entry point for main program logic
 pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     let opts = args::Opt::from_iter(&args);
 
