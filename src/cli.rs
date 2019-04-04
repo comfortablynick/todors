@@ -1,39 +1,27 @@
-#![allow(dead_code)]
+/** Interact with todo.txt file **/
 use crate::{args, err, logger, util::AnyError};
-use ansi_term::Color::Fixed;
-use regex::{self, Captures, Regex};
+use regex::{self, Regex};
 use std::{
     fs,
     io::{self, Write},
     path::PathBuf,
 };
 use structopt::StructOpt;
-use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
 /// Colors
 const HOTPINK: u8 = 198;
-const GREY: u8 = 246;
-const SKYBLUE: u8 = 111;
-const OLIVE: u8 = 113;
 const LIME: u8 = 154;
 const LIGHTORANGE: u8 = 215;
 const GREEN: u8 = 2;
 const BLUE: u8 = 4;
 const TURQUOISE: u8 = 37;
 const TAN: u8 = 179;
+// const GREY: u8 = 246;
+// const SKYBLUE: u8 = 111;
+// const OLIVE: u8 = 113;
 
-fn format_colors(s: String) -> String {
-    lazy_static! {
-        static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
-        static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
-    }
-    let s = RE_PROJECT.replace_all(&s, |c: &Captures| format!("{}", Fixed(LIME).paint(&c[0])));
-    let s = RE_CONTEXT.replace_all(&s, |caps: &Captures| {
-        format!("{}", Fixed(LIGHTORANGE).paint(&caps[0]),)
-    });
-    s.to_string()
-}
-
+/// Get color for a given priority
 fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
     let mut color = ColorSpec::new();
     match c {
@@ -47,6 +35,7 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
     Ok(color)
 }
 
+/// Use regex to add color to priorities, projects and contexts
 fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
@@ -99,32 +88,6 @@ fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
         write!(&mut buf, "\n")?;
     }
     bufwtr.print(&buf)?;
-    Ok(())
-}
-
-fn print_todos(s: String) {
-    let lines = s.lines();
-    let mut ctr = 0;
-    for line in lines {
-        if line != "" {
-            println!("{:02} {}", ctr + 1, line);
-            ctr += 1;
-        }
-    }
-    println!("--\nTODO: {} of {} tasks shown", ctr, ctr,);
-}
-
-fn test_termcolor(s: &str) -> Result<(), AnyError> {
-    let mut buf = StandardStream::stderr(ColorChoice::Always);
-    for n in 0..255 {
-        buf.set_color(
-            ColorSpec::new()
-                .set_fg(Some(Color::Ansi256(n + 1)))
-                .set_bold(true),
-        )?;
-        writeln!(&mut buf, "{} {}", s, n + 1).expect("error writing to buffer");
-    }
-    buf.reset()?;
     Ok(())
 }
 
