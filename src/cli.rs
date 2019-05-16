@@ -85,7 +85,7 @@ fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
             }
         }
         buf.reset()?;
-        write!(&mut buf, "\n")?;
+        writeln!(&mut buf)?;
     }
     bufwtr.print(&buf)?;
     Ok(())
