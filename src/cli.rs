@@ -39,8 +39,6 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
 fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
-        static ref RE_PROJECT: Regex = Regex::new(r"(\+\w+)").unwrap();
-        static ref RE_CONTEXT: Regex = Regex::new(r"(@\w+)").unwrap();
     }
     let mut buf = bufwtr.buffer();
     let mut color = ColorSpec::new();
