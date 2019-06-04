@@ -37,18 +37,26 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
     Ok(color)
 }
 
-fn print_tasks_properties(ts: Vec<Task>) -> Result<String, AnyError> {
+/// Stringify vector of todotxt::Task objects
+fn tasks_to_string(ts: Vec<Task>) -> Result<String, AnyError> {
     let mut buf: Vec<u8> = Vec::new();
-    for t in ts {
-        writeln!(
-            &mut buf,
-            "Created: {}",
-            t.create_date.expect("invalid create date")
-        )?;
-        writeln!(&mut buf, "Subject: {}", t.subject)?;
-        writeln!(&mut buf, "Projects: {:?}", t.projects)?;
-        writeln!(&mut buf, "Contexts: {:?}", t.contexts)?;
-        writeln!(&mut buf)?;
+    for (ctr, task) in ts.iter().enumerate() {
+        if ctr > 1 {
+            writeln!(&mut buf)?;
+        }
+        writeln!(&mut buf, "===== Task {} =====", ctr)?;
+        writeln!(&mut buf, "Finished: {}", task.finished)?;
+        writeln!(&mut buf, "Priority: {}", task.priority)?;
+        if let Some(dt) = task.create_date {
+            writeln!(&mut buf, "Created: {}", dt)?;
+        }
+        if let Some(dt) = task.due_date {
+            writeln!(&mut buf, "Due: {}", dt)?;
+        }
+        writeln!(&mut buf, "Subject: {}", task.subject)?;
+        writeln!(&mut buf, "Contexts: {:?}", task.contexts)?;
+        writeln!(&mut buf, "Projects: {:?}", task.projects)?;
+        writeln!(&mut buf, "Tags: {:?}", task.tags)?;
     }
     let out = String::from_utf8(buf)?;
     Ok(out)
@@ -142,7 +150,7 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     for line in todo_file.lines() {
         todos.push(line.parse::<Task>().unwrap());
     }
-    log::debug!("{}", print_tasks_properties(todos)?);
+    log::debug!("{}", tasks_to_string(todos)?);
     // for todo in todos {
     //     log::debug!("{}", todo);
     // }
