@@ -6,6 +6,7 @@ use std::{
     fs,
     io::{self, Write},
     path::PathBuf,
+    str::FromStr,
 };
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
@@ -112,30 +113,36 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     log::info!("Parsed options:\n{:#?}", opts);
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
+    let mut tasks: Vec<todo_txt::Task> = Vec::new();
 
+    let mut line_ct = 0;
     for line in todo_file.lines() {
-        log::debug!("{:#?}", line.parse::<todo_txt::Task>());
+        line_ct += 1;
+        tasks.push(todo_txt::Task::from_str(line).expect("couldn't parse string as text"));
     }
+    log::debug!("Parsed tasks:\n{:#?}", tasks);
 
+    let _ = line_ct; // satisfy clippy
     let mut ctr = 0;
     let lines = todo_file
         .lines()
         .map(|ln| {
             ctr += 1;
-            format!("{:02} {}", ctr, ln)
+            format!("{:0ct$} {}", ctr, ln, ct = line_ct.to_string().len())
         })
         .collect::<Vec<String>>();
+
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     format_buffer(lines, bufwtr)?;
-
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     #[test]
     fn str_to_task() {
-        use std::str::FromStr;
         let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31";
         let task = todo_txt::Task::from_str(line).expect("error parsing task");
         assert_eq!(task.subject, "Get new +pricing for +item @work");
