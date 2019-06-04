@@ -38,7 +38,7 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
 }
 
 /// Use regex to add color to priorities, projects and contexts
-fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
+fn format_buffer(s: &[String], bufwtr: BufferWriter) -> Result<(), AnyError> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
     }
@@ -54,7 +54,7 @@ fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
                 .map_or("", |c| c.as_str())
                 .chars()
                 .next()
-                .unwrap();
+                .expect("error getting priority");
             color = get_priority_color(pri)?;
             buf.set_color(&color)?;
         } else {
@@ -101,28 +101,25 @@ fn get_todo_file_path() -> Result<PathBuf, AnyError> {
 }
 
 /// Entry point for main program logic
-pub fn run(args: Vec<String>) -> Result<(), AnyError> {
-    let opts = args::Opt::from_iter(&args);
+pub fn run(args: &[String]) -> Result<(), AnyError> {
+    let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
-        // init logger
         logger::init_logger(opts.verbose);
+        log::info!("Running with args: {:?}", args);
+        log::info!("Parsed options:\n{:#?}", opts);
     }
-
-    log::info!("Running with args: {:?}", args);
-    log::info!("Parsed options:\n{:#?}", opts);
-
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
-    let mut tasks: Vec<todo_txt::Task> = Vec::new();
+    let mut tasks: Vec<todo_txt::Task> = Vec::with_capacity(50);
 
     let mut line_ct = 0;
     for line in todo_file.lines() {
         line_ct += 1;
         tasks.push(todo_txt::Task::from_str(line).expect("couldn't parse string as text"));
     }
+    let _ = line_ct; // satisfy clippy
     log::debug!("Parsed tasks:\n{:#?}", tasks);
 
-    let _ = line_ct; // satisfy clippy
     let mut ctr = 0;
     let lines = todo_file
         .lines()
@@ -133,7 +130,7 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
         .collect::<Vec<String>>();
 
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    format_buffer(lines, bufwtr)?;
+    format_buffer(&lines, bufwtr)?;
     Ok(())
 }
 
