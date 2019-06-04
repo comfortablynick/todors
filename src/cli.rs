@@ -9,7 +9,6 @@ use std::{
 };
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
-use todotxt::Task;
 
 /// Colors
 const HOTPINK: u8 = 198;
@@ -37,31 +36,6 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
     Ok(color)
 }
 
-/// Stringify vector of todotxt::Task objects
-fn tasks_to_string(ts: Vec<Task>) -> Result<String, AnyError> {
-    let mut buf: Vec<u8> = Vec::new();
-    for (ctr, task) in ts.iter().enumerate() {
-        if ctr > 1 {
-            writeln!(&mut buf)?;
-        }
-        writeln!(&mut buf, "===== Task {} =====", ctr)?;
-        writeln!(&mut buf, "Finished: {}", task.finished)?;
-        writeln!(&mut buf, "Priority: {}", task.priority)?;
-        if let Some(dt) = task.create_date {
-            writeln!(&mut buf, "Created: {}", dt)?;
-        }
-        if let Some(dt) = task.due_date {
-            writeln!(&mut buf, "Due: {}", dt)?;
-        }
-        writeln!(&mut buf, "Subject: {}", task.subject)?;
-        writeln!(&mut buf, "Contexts: {:?}", task.contexts)?;
-        writeln!(&mut buf, "Projects: {:?}", task.projects)?;
-        writeln!(&mut buf, "Tags: {:?}", task.tags)?;
-    }
-    let out = String::from_utf8(buf)?;
-    Ok(out)
-}
-
 /// Use regex to add color to priorities, projects and contexts
 fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
     lazy_static! {
@@ -69,7 +43,6 @@ fn format_buffer(s: Vec<String>, bufwtr: BufferWriter) -> Result<(), AnyError> {
     }
     let mut buf = bufwtr.buffer();
     let mut color = ColorSpec::new();
-    // let mut ctr = 0;
     for ln in s {
         let line = ln;
         if RE_PRIORITY.is_match(&line) {
@@ -132,13 +105,7 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     if !opts.quiet {
         // init logger
-        logger::Logger::init().expect("error initializing logger");
-        log::set_max_level(match opts.verbose {
-            0 => log::LevelFilter::Warn,
-            1 => log::LevelFilter::Info,
-            2 => log::LevelFilter::Debug,
-            _ => log::LevelFilter::Trace,
-        });
+        logger::init_logger(opts.verbose);
     }
 
     log::trace!("Running with args: {:?}", args);
@@ -146,14 +113,15 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
 
-    let mut todos: Vec<Task> = Vec::new();
+    // let mut todos: Vec<todotxt::Task> = Vec::new();
     for line in todo_file.lines() {
-        todos.push(line.parse::<Task>().unwrap());
+        // todos.push(line.parse::<todotxt::Task>().unwrap());
+        log::debug!(
+            "{:#?}",
+            line.parse::<todotxt::Task>()
+                .expect("error converting line to todotxt::Task")
+        );
     }
-    log::debug!("{}", tasks_to_string(todos)?);
-    // for todo in todos {
-    //     log::debug!("{}", todo);
-    // }
 
     let mut ctr = 0;
     let lines = todo_file
