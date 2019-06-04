@@ -1,4 +1,5 @@
 /** Interact with todo.txt file **/
+// extern crate todotxt;
 use crate::{args, err, logger, util::AnyError};
 use regex::{self, Regex};
 use std::{
@@ -8,6 +9,7 @@ use std::{
 };
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
+use todotxt::Task;
 
 /// Colors
 const HOTPINK: u8 = 198;
@@ -33,6 +35,23 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
         _ => err!("color for priority '{}' not found!", &c),
     };
     Ok(color)
+}
+
+fn print_tasks_properties(ts: Vec<Task>) -> Result<String, AnyError> {
+    let mut buf: Vec<u8> = Vec::new();
+    for t in ts {
+        writeln!(
+            &mut buf,
+            "Created: {}",
+            t.create_date.expect("invalid create date")
+        )?;
+        writeln!(&mut buf, "Subject: {}", t.subject)?;
+        writeln!(&mut buf, "Projects: {:?}", t.projects)?;
+        writeln!(&mut buf, "Contexts: {:?}", t.contexts)?;
+        writeln!(&mut buf)?;
+    }
+    let out = String::from_utf8(buf)?;
+    Ok(out)
 }
 
 /// Use regex to add color to priorities, projects and contexts
@@ -119,6 +138,15 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
 
+    let mut todos: Vec<Task> = Vec::new();
+    for line in todo_file.lines() {
+        todos.push(line.parse::<Task>().unwrap());
+    }
+    log::debug!("{}", print_tasks_properties(todos)?);
+    // for todo in todos {
+    //     log::debug!("{}", todo);
+    // }
+
     let mut ctr = 0;
     let lines = todo_file
         .lines()
@@ -127,7 +155,6 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
             format!("{:02} {}", ctr, ln)
         })
         .collect::<Vec<String>>();
-
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     format_buffer(lines, bufwtr)?;
 
