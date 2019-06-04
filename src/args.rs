@@ -6,7 +6,6 @@ use structopt::StructOpt;
 #[structopt(
     name = "todors",
     about = "View and edit a file in todo.txt format",
-    raw(setting = "structopt::clap::AppSettings::ColoredHelp"),
     raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage")
 )]
 pub struct Opt {

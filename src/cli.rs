@@ -108,19 +108,13 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
         logger::init_logger(opts.verbose);
     }
 
-    log::trace!("Running with args: {:?}", args);
-    log::debug!("Parsed options:\n{:#?}", opts);
+    log::info!("Running with args: {:?}", args);
+    log::info!("Parsed options:\n{:#?}", opts);
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
 
-    // let mut todos: Vec<todotxt::Task> = Vec::new();
     for line in todo_file.lines() {
-        // todos.push(line.parse::<todotxt::Task>().unwrap());
-        log::debug!(
-            "{:#?}",
-            line.parse::<todotxt::Task>()
-                .expect("error converting line to todotxt::Task")
-        );
+        log::debug!("{:#?}", line.parse::<todo_txt::Task>());
     }
 
     let mut ctr = 0;
@@ -135,4 +129,21 @@ pub fn run(args: Vec<String>) -> Result<(), AnyError> {
     format_buffer(lines, bufwtr)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn str_to_task() {
+        use std::str::FromStr;
+        let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31";
+        let task = todo_txt::Task::from_str(line).expect("error parsing task");
+        assert_eq!(task.subject, "Get new +pricing for +item @work");
+        assert_eq!(task.priority, 2);
+        assert_eq!(task.contexts, vec!("work".to_owned()));
+        assert_eq!(task.projects, vec!("item".to_owned(), "pricing".to_owned()));
+        assert_eq!(task.finish_date, None);
+        assert_eq!(task.due_date, Some(todo_txt::Date::from_ymd(2019, 12, 31)));
+        assert_eq!(task.threshold_date, None);
+    }
 }
