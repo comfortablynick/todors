@@ -22,7 +22,12 @@ pub struct Opt {
     pub usage: bool,
 
     /// Use a config file other than the default ~/.todo/config
-    #[structopt(short = "d", name = "CONFIG_FILE", parse(from_os_str))]
+    #[structopt(
+        short = "d",
+        name = "CONFIG_FILE",
+        parse(from_os_str),
+        env = "TODOTXT_CFG_FILE"
+    )]
     pub config_file: Option<PathBuf>,
 
     /// List contents of todo.txt file
