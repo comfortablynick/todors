@@ -38,7 +38,7 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
 }
 
 /// Use regex to add color to priorities, projects and contexts
-fn format_buffer(s: &[String], bufwtr: BufferWriter) -> Result<(), AnyError> {
+fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), AnyError> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
     }
@@ -65,18 +65,22 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter) -> Result<(), AnyError> {
             let prev_color = color.fg().cloned();
             match first_char {
                 Some('+') => {
-                    color.set_fg(Some(Color::Ansi256(LIME)));
-                    buf.set_color(&color)?;
-                    write!(&mut buf, "{} ", word)?;
-                    color.set_fg(prev_color);
-                    buf.set_color(&color)?;
+                    if opts.hide_project % 2 == 0 {
+                        color.set_fg(Some(Color::Ansi256(LIME)));
+                        buf.set_color(&color)?;
+                        write!(&mut buf, "{} ", word)?;
+                        color.set_fg(prev_color);
+                        buf.set_color(&color)?;
+                    }
                 }
                 Some('@') => {
-                    color.set_fg(Some(Color::Ansi256(LIGHTORANGE)));
-                    buf.set_color(&color)?;
-                    write!(&mut buf, "{} ", word)?;
-                    color.set_fg(prev_color);
-                    buf.set_color(&color)?;
+                    if opts.hide_context % 2 == 0 {
+                        color.set_fg(Some(Color::Ansi256(LIGHTORANGE)));
+                        buf.set_color(&color)?;
+                        write!(&mut buf, "{} ", word)?;
+                        color.set_fg(prev_color);
+                        buf.set_color(&color)?;
+                    }
                 }
                 _ => {
                     write!(&mut buf, "{} ", word)?;
@@ -101,10 +105,10 @@ fn get_todo_file_path() -> Result<PathBuf, AnyError> {
 }
 
 /// Source todo.cfg using bash
-fn source_cfg_file(cfg_file_path: PathBuf) -> Result<String, AnyError> {
+fn source_cfg_file(cfg_file_path: &str) -> Result<String, AnyError> {
     let child = std::process::Command::new("/bin/bash")
         .arg("-c")
-        .arg(format!("source {:?}; env | rg TODO", cfg_file_path))
+        .arg(format!("source {}; env | rg TODO", cfg_file_path))
         .output()?;
     Ok(String::from_utf8(child.stdout)?)
 }
@@ -145,16 +149,19 @@ pub fn run(args: &[String]) -> Result<(), AnyError> {
         log::info!("Running with args: {:?}", args);
         log::info!("Parsed options:\n{:#?}", opts);
     }
-    if let Some(cfg_file) = opts.config_file {
+    if opts.plain {
+        std::env::set_var("TERM", "dumb");
+    }
+    if let Some(ref cfg_file) = opts.config_file {
         log::info!("Found cfg file path: {:?}", cfg_file);
         if let Ok(env) = source_cfg_file(cfg_file) {
             let lines = env.split_whitespace();
             for line in lines {
                 log::debug!("{:?}", process_cfg(line)?);
             }
-            // log::debug!("Env vars after reading cfg file:\n{}", env);
         };
     };
+
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
     let mut tasks: Vec<todo_txt::Task> = Vec::with_capacity(50);
 
@@ -176,7 +183,7 @@ pub fn run(args: &[String]) -> Result<(), AnyError> {
         .collect::<Vec<String>>();
 
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    format_buffer(&lines, bufwtr)?;
+    format_buffer(&lines, bufwtr, &opts)?;
     Ok(())
 }
 

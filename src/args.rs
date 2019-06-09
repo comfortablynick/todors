@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use structopt::StructOpt;
 
 /// Command line options
@@ -9,26 +8,31 @@ use structopt::StructOpt;
     raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage")
 )]
 pub struct Opt {
+    /// Hide context names in list output.
+    /// Use twice to show context names (default).
+    #[structopt(short = "@", parse(from_occurrences))]
+    pub hide_context: u8,
+
+    /// Hide project names in list output.
+    /// Use twice to show project  names (default).
+    #[structopt(short = "+", parse(from_occurrences))]
+    pub hide_project: u8,
+
+    /// Plain mode turns off colors
+    #[structopt(short = "p")]
+    pub plain: bool,
+
     /// Verbose mode (-v, -vv, -vvv, etc.)
-    #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
+    #[structopt(short = "v", parse(from_occurrences))]
     pub verbose: u8,
 
     /// Quiet debug messages
-    #[structopt(short = "q", long = "quiet")]
+    #[structopt(short = "q")]
     pub quiet: bool,
 
-    /// Usage information
-    #[structopt(long = "usage")]
-    pub usage: bool,
-
     /// Use a config file other than the default ~/.todo/config
-    #[structopt(
-        short = "d",
-        name = "CONFIG_FILE",
-        parse(from_os_str),
-        env = "TODOTXT_CFG_FILE"
-    )]
-    pub config_file: Option<PathBuf>,
+    #[structopt(short = "d", name = "CONFIG_FILE", env = "TODOTXT_CFG_FILE")]
+    pub config_file: Option<String>,
 
     /// List contents of todo.txt file
     #[structopt(subcommand)]
