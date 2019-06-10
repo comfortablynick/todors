@@ -1,6 +1,6 @@
 /** Interact with todo.txt file **/
 // extern crate todotxt;
-use crate::{args, err, logger, util::AnyError};
+use crate::{args, err, logger, AnyError};
 use regex::{self, Regex};
 use std::{
     fs,
@@ -32,7 +32,7 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
         'C' => color.set_fg(Some(Color::Ansi256(BLUE))).set_bold(true),
         'D' => color.set_fg(Some(Color::Ansi256(TURQUOISE))).set_bold(true),
         'E'...'Z' => color.set_fg(Some(Color::Ansi256(TAN))),
-        _ => err!("color for priority '{}' not found!", &c),
+        _ => err!("color for priority `{}` not found!", &c),
     };
     Ok(color)
 }
