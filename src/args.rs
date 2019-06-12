@@ -81,9 +81,13 @@ pub enum Command {
         text: String,
     },
 
-    /// List todos
+    /// Displays all tasks (optionally filtered by terms)
     #[structopt(name = "list", visible_alias = "ls")]
-    List,
+    List {
+        /// Term to search for
+        #[structopt(name = "term")]
+        terms: Vec<String>,
+    },
 
     /// List all todos
     #[structopt(name = "listall", visible_alias = "lsa")]

@@ -1,6 +1,9 @@
-/** Interact with todo.txt file **/
-// extern crate todotxt;
-use crate::{args, err, logger, AnyError};
+//! Interact with todo.txt file
+use crate::{
+    args::{self, Command},
+    err, logger, AnyError,
+};
+use log::{debug, info, trace};
 use regex::{self, Regex};
 use std::{
     fs,
@@ -11,27 +14,36 @@ use std::{
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
-/// Colors
-const HOTPINK: u8 = 198;
-const LIME: u8 = 154;
-const LIGHTORANGE: u8 = 215;
-const GREEN: u8 = 2;
-const BLUE: u8 = 4;
-const TURQUOISE: u8 = 37;
-const TAN: u8 = 179;
-// const GREY: u8 = 246;
-// const SKYBLUE: u8 = 111;
-// const OLIVE: u8 = 113;
+/// Store constants of ANSI 256-color codes
+struct Ansi;
+
+#[allow(dead_code)]
+impl Ansi {
+    const HOTPINK: u8 = 198;
+    const LIME: u8 = 154;
+    const LIGHTORANGE: u8 = 215;
+    const GREEN: u8 = 2;
+    const BLUE: u8 = 4;
+    const TURQUOISE: u8 = 37;
+    const TAN: u8 = 179;
+    const GREY: u8 = 246;
+    const SKYBLUE: u8 = 111;
+    const OLIVE: u8 = 113;
+}
 
 /// Get color for a given priority
 fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
     let mut color = ColorSpec::new();
     match c {
-        'A' => color.set_fg(Some(Color::Ansi256(HOTPINK))),
-        'B' => color.set_fg(Some(Color::Ansi256(GREEN))),
-        'C' => color.set_fg(Some(Color::Ansi256(BLUE))).set_bold(true),
-        'D' => color.set_fg(Some(Color::Ansi256(TURQUOISE))).set_bold(true),
-        'E'...'Z' => color.set_fg(Some(Color::Ansi256(TAN))),
+        'A' => color.set_fg(Some(Color::Ansi256(Ansi::HOTPINK))),
+        'B' => color.set_fg(Some(Color::Ansi256(Ansi::GREEN))),
+        'C' => color
+            .set_fg(Some(Color::Ansi256(Ansi::BLUE)))
+            .set_bold(true),
+        'D' => color
+            .set_fg(Some(Color::Ansi256(Ansi::TURQUOISE)))
+            .set_bold(true),
+        'E'...'Z' => color.set_fg(Some(Color::Ansi256(Ansi::TAN))),
         _ => err!("color for priority `{}` not found!", &c),
     };
     Ok(color)
@@ -46,19 +58,15 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
     let mut color = ColorSpec::new();
     for ln in s {
         let line = ln;
-        if RE_PRIORITY.is_match(&line) {
-            // get priority
-            let caps = RE_PRIORITY.captures(&line).unwrap();
-            let pri = caps
-                .get(1)
-                .map_or("", |c| c.as_str())
-                .chars()
-                .next()
-                .expect("error getting priority");
-            color = get_priority_color(pri)?;
+        if let Some(caps) = RE_PRIORITY.captures(&line) {
+            let color = get_priority_color(
+                caps.get(1)
+                    .map_or("", |c| c.as_str())
+                    .chars()
+                    .next()
+                    .ok_or("error getting priority")?,
+            )?;
             buf.set_color(&color)?;
-        } else {
-            buf.reset()?;
         }
         for word in line.split_whitespace() {
             let first_char = word.chars().next();
@@ -66,7 +74,7 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
             match first_char {
                 Some('+') => {
                     if opts.hide_project % 2 == 0 {
-                        color.set_fg(Some(Color::Ansi256(LIME)));
+                        color.set_fg(Some(Color::Ansi256(Ansi::LIME)));
                         buf.set_color(&color)?;
                         write!(&mut buf, "{} ", word)?;
                         color.set_fg(prev_color);
@@ -75,7 +83,7 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
                 }
                 Some('@') => {
                     if opts.hide_context % 2 == 0 {
-                        color.set_fg(Some(Color::Ansi256(LIGHTORANGE)));
+                        color.set_fg(Some(Color::Ansi256(Ansi::LIGHTORANGE)));
                         buf.set_color(&color)?;
                         write!(&mut buf, "{} ", word)?;
                         color.set_fg(prev_color);
@@ -146,18 +154,33 @@ pub fn run(args: &[String]) -> Result<(), AnyError> {
 
     if !opts.quiet {
         logger::init_logger(opts.verbose);
-        log::info!("Running with args: {:?}", args);
-        log::info!("Parsed options:\n{:#?}", opts);
+        info!("Running with args: {:?}", args);
+        info!("Parsed options:\n{:#?}", opts);
     }
     if opts.plain {
         std::env::set_var("TERM", "dumb");
     }
+
+    match &opts.cmd {
+        Some(command) => match command {
+            Command::Add { todo } => info!("Adding: {:?}", todo),
+            Command::Addm { todo } => info!("Adding multiple: {:?}", todo),
+            Command::List { terms } => info!("Listing with terms: {:?}", terms),
+            Command::Listall => info!("Listing all..."),
+            Command::Addto => info!("Adding to..."),
+            Command::Append { item, text } => info!("Appending: {:?} to task {}", text, item),
+        },
+        None => {
+            info!("No command supplied; defaulting to List");
+        }
+    }
+
     if let Some(ref cfg_file) = opts.config_file {
-        log::info!("Found cfg file path: {:?}", cfg_file);
+        info!("Found cfg file path: {:?}", cfg_file);
         if let Ok(env) = source_cfg_file(cfg_file) {
             let lines = env.split_whitespace();
             for line in lines {
-                log::debug!("{:?}", process_cfg(line)?);
+                debug!("{:?}", process_cfg(line)?);
             }
         };
     };
@@ -165,25 +188,25 @@ pub fn run(args: &[String]) -> Result<(), AnyError> {
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
     let mut tasks: Vec<todo_txt::Task> = Vec::with_capacity(50);
 
-    let mut line_ct = 0;
+    let mut file_line_ct = 0;
     for line in todo_file.lines() {
-        line_ct += 1;
+        file_line_ct += 1;
         tasks.push(todo_txt::Task::from_str(line).expect("couldn't parse string as text"));
     }
-    let _ = line_ct; // satisfy clippy
-    log::trace!("Parsed tasks:\n{:#?}", tasks);
+    trace!("Parsed tasks:\n{:#?}", tasks);
 
     let mut ctr = 0;
     let lines = todo_file
         .lines()
         .map(|ln| {
             ctr += 1;
-            format!("{:0ct$} {}", ctr, ln, ct = line_ct.to_string().len())
+            format!("{:0ct$} {}", ctr, ln, ct = file_line_ct.to_string().len())
         })
         .collect::<Vec<String>>();
 
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     format_buffer(&lines, bufwtr, &opts)?;
+    println!("--\nTODO: {} of {} tasks shown", ctr, file_line_ct);
     Ok(())
 }
 

@@ -16,7 +16,7 @@ fn main() -> Result<(), AnyError> {
     let args: Vec<String> = if std::env::args().len() > 1 {
         std::env::args().collect()
     } else {
-        ["todors", "-vvvv"].iter().map(|s| s.to_string()).collect()
+        ["todors", "-v"].iter().map(|s| s.to_string()).collect()
     };
     // turn on ANSI escape support on Windows to use color
     #[cfg(windows)]
