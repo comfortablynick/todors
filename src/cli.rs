@@ -2,7 +2,7 @@
 use crate::{
     args::{self, Command},
     util::{
-        error::{err, AnyError, AppError},
+        error::{err, AppError},
         logger,
     },
 };
@@ -53,7 +53,7 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
 }
 
 /// Use regex to add color to priorities, projects and contexts
-fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), AnyError> {
+fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), AppError> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
     }
@@ -106,12 +106,30 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
 }
 
 /// Gets path based on default location
-fn get_todo_file_path() -> Result<PathBuf, AnyError> {
-    let home = dirs::home_dir().ok_or("error getting home directory")?;
-    let mut path: PathBuf = home;
+fn get_todo_file_path() -> Result<PathBuf, AppError> {
+    let mut path = PathBuf::new();
+    if let Some(home) = dirs::home_dir() {
+        path.push(home);
+    } else {
+        path.push("~");
+    }
     path.push("Dropbox");
     path.push("todo");
     path.push("todo.txt");
+    Ok(path)
+}
+
+/// Gets toml config file path based on default location
+fn get_def_cfg_file_path() -> Result<PathBuf, AppError> {
+    let mut path = PathBuf::new();
+    if let Some(home) = dirs::home_dir() {
+        path.push(home);
+    } else {
+        path.push("~");
+    }
+    path.push("Dropbox");
+    path.push("todo");
+    path.push("todo.toml");
     Ok(path)
 }
 
@@ -131,8 +149,17 @@ struct EnvVar<'a> {
     value: &'a str,
 }
 
+fn read_config(file_path: &PathBuf) -> Result<(), AppError> {
+    use std::io::prelude::*;
+    let mut config_toml = String::new();
+    let mut file = std::fs::File::open(file_path)?;
+    file.read_to_string(&mut config_toml)?;
+    info!("{}", config_toml);
+    Ok(())
+}
+
 /// Process strings into EnvVars
-fn process_cfg(cfg_item: &str) -> Result<EnvVar, AnyError> {
+fn process_cfg(cfg_item: &str) -> Result<EnvVar, AppError> {
     let mut split = cfg_item.split('=').map(str::trim);
     split
         .next()
@@ -148,11 +175,14 @@ fn process_cfg(cfg_item: &str) -> Result<EnvVar, AnyError> {
                 })
                 .map(|value| EnvVar { name, value })
         })
-        .ok_or_else(|| "unable to parse cfg item".into())
+        .ok_or_else(|| AppError {
+            kind: String::from("parse"),
+            message: String::from("unable to parse cfg item"),
+        })
 }
 
 /// Entry point for main program logic
-pub fn run(args: &[String]) -> Result<(), AnyError> {
+pub fn run(args: &[String]) -> Result<(), AppError> {
     let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
@@ -188,6 +218,10 @@ pub fn run(args: &[String]) -> Result<(), AnyError> {
         };
     };
 
+    let toml_file_path = get_def_cfg_file_path()?;
+    read_config(&toml_file_path)?;
+
+    // read_config()
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
     let mut tasks: Vec<todo_txt::Task> = Vec::with_capacity(50);
 

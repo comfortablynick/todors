@@ -3,7 +3,8 @@
 pub mod error {
     /// Generic boxed error
     /// Works for errors that have the std::error::Error trait
-    pub type AnyError = Box<dyn std::error::Error + 'static>;
+    /// Deprecated in favor of custom AppError
+    // pub type AnyError = Box<dyn std::error::Error + 'static>;
 
     #[macro_export]
     /// Create a std::io::Error of "Other" kind
@@ -12,10 +13,11 @@ pub mod error {
 );
     pub(crate) use err;
 
+    // TODO: use enum for `kind` instead of string
     #[derive(Debug)]
     pub struct AppError {
-        kind: String,
-        message: String,
+        pub kind: String,
+        pub message: String,
     }
 
     impl From<std::io::Error> for AppError {
@@ -41,6 +43,15 @@ pub mod error {
             AppError {
                 kind: String::from("UTF-8"),
                 message: error.to_string(),
+            }
+        }
+    }
+
+    impl From<&str> for AppError {
+        fn from(msg: &str) -> Self {
+            AppError {
+                kind: String::from("other"),
+                message: String::from(msg),
             }
         }
     }
