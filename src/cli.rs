@@ -1,7 +1,10 @@
-//! Interact with todo.txt file
+/** Main program logic */
 use crate::{
     args::{self, Command},
-    err, logger, AnyError,
+    util::{
+        error::{err, AnyError, AppError},
+        logger,
+    },
 };
 use log::{debug, info, trace};
 use regex::{self, Regex};
@@ -113,15 +116,15 @@ fn get_todo_file_path() -> Result<PathBuf, AnyError> {
 }
 
 /// Source todo.cfg using bash
-fn source_cfg_file(cfg_file_path: &str) -> Result<String, AnyError> {
+fn source_cfg_file(cfg_file_path: &str) -> Result<String, AppError> {
     let child = std::process::Command::new("/bin/bash")
         .arg("-c")
-        .arg(format!("source {}; env | rg TODO", cfg_file_path))
+        .arg(format!("source {}; env", cfg_file_path))
         .output()?;
-    Ok(String::from_utf8(child.stdout)?)
+    String::from_utf8(child.stdout).map_err(AppError::from)
 }
 
-/// Holds key value pairs for env vars
+/// Hold key value pairs for env vars
 #[derive(Debug)]
 struct EnvVar<'a> {
     name: &'a str,
@@ -131,7 +134,7 @@ struct EnvVar<'a> {
 /// Process strings into EnvVars
 fn process_cfg(cfg_item: &str) -> Result<EnvVar, AnyError> {
     let mut split = cfg_item.split('=').map(str::trim);
-    Ok(split
+    split
         .next()
         .and_then(|name| {
             split
@@ -145,7 +148,7 @@ fn process_cfg(cfg_item: &str) -> Result<EnvVar, AnyError> {
                 })
                 .map(|value| EnvVar { name, value })
         })
-        .expect("unable to parse cfg item"))
+        .ok_or_else(|| "unable to parse cfg item".into())
 }
 
 /// Entry point for main program logic
