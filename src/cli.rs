@@ -6,6 +6,7 @@ use crate::{
         logger,
     },
 };
+#[allow(unused_imports)]
 use log::{debug, info, trace};
 use regex::{self, Regex};
 use std::{
@@ -16,8 +17,9 @@ use std::{
 };
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
+use toml::Value;
 
-/// Store constants of ANSI 256-color codes
+/// Store constants of ANSI 256-color codes {{{
 struct Ansi;
 
 #[allow(dead_code)]
@@ -33,6 +35,7 @@ impl Ansi {
     const SKYBLUE: u8 = 111;
     const OLIVE: u8 = 113;
 }
+// }}}
 
 /// Get color for a given priority
 fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
@@ -119,6 +122,8 @@ fn get_todo_file_path() -> Result<PathBuf, AppError> {
     Ok(path)
 }
 
+// Config file {{{
+#[allow(dead_code)]
 /// Gets toml config file path based on default location
 fn get_def_cfg_file_path() -> Result<PathBuf, AppError> {
     let mut path = PathBuf::new();
@@ -127,12 +132,15 @@ fn get_def_cfg_file_path() -> Result<PathBuf, AppError> {
     } else {
         path.push("~");
     }
-    path.push("Dropbox");
-    path.push("todo");
+    // path.push("Dropbox");
+    // path.push("todo");
+    path.push("git");
+    path.push("todors");
     path.push("todo.toml");
     Ok(path)
 }
 
+#[allow(dead_code)]
 /// Source todo.cfg using bash
 fn source_cfg_file(cfg_file_path: &str) -> Result<String, AppError> {
     let child = std::process::Command::new("/bin/bash")
@@ -143,21 +151,37 @@ fn source_cfg_file(cfg_file_path: &str) -> Result<String, AppError> {
 }
 
 /// Hold key value pairs for env vars
+#[allow(dead_code)]
 #[derive(Debug)]
 struct EnvVar<'a> {
     name: &'a str,
     value: &'a str,
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
+struct Config {
+    date_on_add: bool,
+    default_action: Command,
+    context_color: u8,
+    project_color: u8,
+    done_color: u8,
+}
+
+#[allow(dead_code)]
+/// Read and process cfg from toml
 fn read_config(file_path: &PathBuf) -> Result<(), AppError> {
     use std::io::prelude::*;
     let mut config_toml = String::new();
     let mut file = std::fs::File::open(file_path)?;
+    info!("Found config file at {:?}", file_path);
     file.read_to_string(&mut config_toml)?;
-    info!("{}", config_toml);
+    let value = config_toml.parse::<Value>().unwrap();
+    debug!("{:?}", value);
     Ok(())
 }
 
+#[allow(dead_code)]
 /// Process strings into EnvVars
 fn process_cfg(cfg_item: &str) -> Result<EnvVar, AppError> {
     let mut split = cfg_item.split('=').map(str::trim);
@@ -180,6 +204,7 @@ fn process_cfg(cfg_item: &str) -> Result<EnvVar, AppError> {
             message: String::from("unable to parse cfg item"),
         })
 }
+// }}}
 
 /// Entry point for main program logic
 pub fn run(args: &[String]) -> Result<(), AppError> {
@@ -208,20 +233,21 @@ pub fn run(args: &[String]) -> Result<(), AppError> {
         }
     }
 
-    if let Some(ref cfg_file) = opts.config_file {
-        info!("Found cfg file path: {:?}", cfg_file);
-        if let Ok(env) = source_cfg_file(cfg_file) {
-            let lines = env.split_whitespace();
-            for line in lines {
-                debug!("{:?}", process_cfg(line)?);
-            }
-        };
-    };
+    // Load config file {{{
+    // if let Some(ref cfg_file) = opts.config_file {
+    //     info!("Found cfg file path: {:?}", cfg_file);
+    //     if let Ok(env) = source_cfg_file(cfg_file) {
+    //         let lines = env.split_whitespace();
+    //         for line in lines {
+    //             debug!("{:?}", process_cfg(line)?);
+    //         }
+    //     };
+    // };
 
-    let toml_file_path = get_def_cfg_file_path()?;
-    read_config(&toml_file_path)?;
+    // let toml_file_path = get_def_cfg_file_path()?;
+    // read_config(&toml_file_path)?;
+    // }}}
 
-    // read_config()
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
     let mut tasks: Vec<todo_txt::Task> = Vec::with_capacity(50);
 
@@ -247,7 +273,7 @@ pub fn run(args: &[String]) -> Result<(), AppError> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(test)] // {{{
 mod test {
     use std::str::FromStr;
 
@@ -264,3 +290,4 @@ mod test {
         assert_eq!(task.threshold_date, None);
     }
 }
+// }}}
