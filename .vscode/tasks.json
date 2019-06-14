@@ -1,0 +1,70 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Cargo Install",
+            "command": "cargo",
+            "args": [
+                "install",
+                "-f",
+                "--path",
+                "."
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}"
+            },
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "Cargo Run",
+            "command": "cargo",
+            "args": [
+                "run"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "Cargo Install & Run",
+            "dependsOn": [
+                "Cargo Install",
+                "Cargo Run"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}

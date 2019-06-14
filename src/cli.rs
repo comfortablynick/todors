@@ -9,6 +9,8 @@ use crate::{
 #[allow(unused_imports)]
 use log::{debug, info, trace};
 use regex::{self, Regex};
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::{
     fs,
     io::{self, Write},
@@ -17,9 +19,9 @@ use std::{
 };
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
-use toml::Value;
 
 /// Store constants of ANSI 256-color codes {{{
+#[derive(Debug)]
 struct Ansi;
 
 #[allow(dead_code)]
@@ -158,27 +160,36 @@ struct EnvVar<'a> {
     value: &'a str,
 }
 
-#[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+struct Colors {
+    context: Option<u8>,
+    project: Option<u8>,
+    done: Option<u8>,
+    priority: HashMap<char, u8>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Settings {
+    date_on_add: Option<bool>,
+    default_action: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct Config {
-    date_on_add: bool,
-    default_action: Command,
-    context_color: u8,
-    project_color: u8,
-    done_color: u8,
+    colors: Colors,
+    general: Settings,
 }
 
 #[allow(dead_code)]
-/// Read and process cfg from toml
-fn read_config(file_path: &PathBuf) -> Result<(), AppError> {
+/// Read and process cfg from toml into Config object
+fn read_config(file_path: &PathBuf) -> Result<Config, AppError> {
     use std::io::prelude::*;
     let mut config_toml = String::new();
     let mut file = std::fs::File::open(file_path)?;
     info!("Found config file at {:?}", file_path);
     file.read_to_string(&mut config_toml)?;
-    let value = config_toml.parse::<Value>().unwrap();
-    debug!("{:?}", value);
-    Ok(())
+    let cfg: Result<Config, AppError> = toml::from_str(&config_toml).map_err(AppError::from);
+    cfg
 }
 
 #[allow(dead_code)]
@@ -243,10 +254,11 @@ pub fn run(args: &[String]) -> Result<(), AppError> {
     //         }
     //     };
     // };
-
-    // let toml_file_path = get_def_cfg_file_path()?;
-    // read_config(&toml_file_path)?;
     // }}}
+
+    let toml_file_path = get_def_cfg_file_path()?;
+    let cfg = read_config(&toml_file_path)?;
+    debug!("{:#?}", cfg);
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
     let mut tasks: Vec<todo_txt::Task> = Vec::with_capacity(50);

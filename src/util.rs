@@ -55,6 +55,15 @@ pub mod error {
             }
         }
     }
+
+    impl From<toml::de::Error> for AppError {
+        fn from(error: toml::de::Error) -> Self {
+            AppError {
+                kind: String::from("toml"),
+                message: error.to_string(),
+            }
+        }
+    }
 }
 
 pub mod logger {
