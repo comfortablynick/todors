@@ -4,7 +4,7 @@ mod args;
 mod cli;
 mod util;
 
-fn main() -> Result<(), util::error::AppError> {
+fn main() -> Result<(), failure::Error> {
     // TODO: remove this after testing and simply pass cli args
     let args: Vec<String> = if std::env::args().len() > 1 {
         std::env::args().collect()

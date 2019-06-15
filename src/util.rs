@@ -1,27 +1,34 @@
 /// Custom errors and traits
 
 pub mod error {
-    /// Generic boxed error
-    /// Works for errors that have the std::error::Error trait
-    /// Deprecated in favor of custom AppError
-    // pub type AnyError = Box<dyn std::error::Error + 'static>;
+    use std::io;
 
-    #[macro_export]
-    /// Create a std::io::Error of "Other" kind
-    macro_rules! err(
-    ($($arg:tt)*) => (return Err(std::io::Error::new(std::io::ErrorKind::Other, format!($($arg)*))))
-);
-    pub(crate) use err;
+    #[derive(Debug)]
+    pub enum CliError {
+        Io(io::Error),
+        Unicode(std::str::Utf8Error),
+    }
 
-    // TODO: use enum for `kind` instead of string
+    impl From<io::Error> for CliError {
+        fn from(error: io::Error) -> Self {
+            CliError::Io(error)
+        }
+    }
+
+    impl From<std::str::Utf8Error> for CliError {
+        fn from(error: std::str::Utf8Error) -> Self {
+            CliError::Unicode(error)
+        }
+    }
+
     #[derive(Debug)]
     pub struct AppError {
         pub kind: String,
         pub message: String,
     }
 
-    impl From<std::io::Error> for AppError {
-        fn from(error: std::io::Error) -> Self {
+    impl From<io::Error> for AppError {
+        fn from(error: io::Error) -> Self {
             AppError {
                 kind: String::from("io"),
                 message: error.to_string(),

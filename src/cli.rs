@@ -1,22 +1,14 @@
 /** Main program logic */
 use crate::{
     args::{self, Command},
-    util::{
-        error::{err, AppError},
-        logger,
-    },
+    util::logger,
 };
-#[allow(unused_imports)]
+use failure::{err_msg, Error};
 use log::{debug, info, trace};
 use regex::{self, Regex};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::{
-    fs,
-    io::{self, Write},
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{fs, io::Write, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
@@ -40,7 +32,7 @@ impl Ansi {
 // }}}
 
 /// Get color for a given priority
-fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
+fn get_priority_color(c: char) -> Result<ColorSpec, Error> {
     let mut color = ColorSpec::new();
     match c {
         'A' => color.set_fg(Some(Color::Ansi256(Ansi::HOTPINK))),
@@ -52,13 +44,13 @@ fn get_priority_color(c: char) -> Result<ColorSpec, io::Error> {
             .set_fg(Some(Color::Ansi256(Ansi::TURQUOISE)))
             .set_bold(true),
         'E'...'Z' => color.set_fg(Some(Color::Ansi256(Ansi::TAN))),
-        _ => err!("color for priority `{}` not found!", &c),
+        _ => unreachable!("priority `{}` not found!", &c),
     };
     Ok(color)
 }
 
 /// Use regex to add color to priorities, projects and contexts
-fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), AppError> {
+fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), Error> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
     }
@@ -72,7 +64,7 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
                     .map_or("", |c| c.as_str())
                     .chars()
                     .next()
-                    .ok_or("error getting priority")?,
+                    .expect("error getting priority"),
             )?;
             buf.set_color(&color)?;
         }
@@ -111,7 +103,7 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
 }
 
 /// Gets path based on default location
-fn get_todo_file_path() -> Result<PathBuf, AppError> {
+fn get_todo_file_path() -> Result<PathBuf, Error> {
     let mut path = PathBuf::new();
     if let Some(home) = dirs::home_dir() {
         path.push(home);
@@ -124,10 +116,8 @@ fn get_todo_file_path() -> Result<PathBuf, AppError> {
     Ok(path)
 }
 
-// Config file {{{
-#[allow(dead_code)]
 /// Gets toml config file path based on default location
-fn get_def_cfg_file_path() -> Result<PathBuf, AppError> {
+fn get_def_cfg_file_path() -> Result<PathBuf, Error> {
     let mut path = PathBuf::new();
     if let Some(home) = dirs::home_dir() {
         path.push(home);
@@ -142,14 +132,15 @@ fn get_def_cfg_file_path() -> Result<PathBuf, AppError> {
     Ok(path)
 }
 
+// Shell config file {{{
 #[allow(dead_code)]
 /// Source todo.cfg using bash
-fn source_cfg_file(cfg_file_path: &str) -> Result<String, AppError> {
+fn source_cfg_file(cfg_file_path: &str) -> Result<String, Error> {
     let child = std::process::Command::new("/bin/bash")
         .arg("-c")
         .arg(format!("source {}; env", cfg_file_path))
         .output()?;
-    String::from_utf8(child.stdout).map_err(AppError::from)
+    String::from_utf8(child.stdout).map_err(Error::from)
 }
 
 /// Hold key value pairs for env vars
@@ -160,41 +151,9 @@ struct EnvVar<'a> {
     value: &'a str,
 }
 
-#[derive(Debug, Deserialize)]
-struct Colors {
-    context: Option<u8>,
-    project: Option<u8>,
-    done: Option<u8>,
-    priority: HashMap<char, u8>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Settings {
-    date_on_add: Option<bool>,
-    default_action: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Config {
-    colors: Colors,
-    general: Settings,
-}
-
-#[allow(dead_code)]
-/// Read and process cfg from toml into Config object
-fn read_config(file_path: &PathBuf) -> Result<Config, AppError> {
-    use std::io::prelude::*;
-    let mut config_toml = String::new();
-    let mut file = std::fs::File::open(file_path)?;
-    info!("Found config file at {:?}", file_path);
-    file.read_to_string(&mut config_toml)?;
-    let cfg: Result<Config, AppError> = toml::from_str(&config_toml).map_err(AppError::from);
-    cfg
-}
-
 #[allow(dead_code)]
 /// Process strings into EnvVars
-fn process_cfg(cfg_item: &str) -> Result<EnvVar, AppError> {
+fn process_cfg(cfg_item: &str) -> Result<EnvVar, Error> {
     let mut split = cfg_item.split('=').map(str::trim);
     split
         .next()
@@ -210,15 +169,49 @@ fn process_cfg(cfg_item: &str) -> Result<EnvVar, AppError> {
                 })
                 .map(|value| EnvVar { name, value })
         })
-        .ok_or_else(|| AppError {
-            kind: String::from("parse"),
-            message: String::from("unable to parse cfg item"),
-        })
+        .ok_or_else(|| err_msg("unable to parse cfg item"))
 }
-// }}}
+//}}}
+
+// TOML configuration {{{
+#[derive(Debug, Deserialize)]
+/// Color settings for terminal output
+struct Colors {
+    context: Option<u8>,
+    project: Option<u8>,
+    done: Option<u8>,
+    priority: HashMap<char, u8>,
+}
+
+/// General app settings
+#[derive(Debug, Deserialize)]
+struct Settings {
+    date_on_add: Option<bool>,
+    default_action: Option<String>,
+}
+
+/// All configuration settings
+#[derive(Debug, Deserialize)]
+struct Config {
+    colors: Colors,
+    general: Settings,
+}
+
+#[allow(dead_code)]
+/// Read and process cfg from toml into Config object
+fn read_config(file_path: &PathBuf) -> Result<Config, Error> {
+    use std::io::prelude::*;
+    let mut config_toml = String::new();
+    let mut file = std::fs::File::open(file_path)?;
+    info!("Found config file at {:?}", file_path);
+    file.read_to_string(&mut config_toml)?;
+    let cfg: Result<Config, Error> = toml::from_str(&config_toml).map_err(Error::from);
+    cfg
+}
+//}}}
 
 /// Entry point for main program logic
-pub fn run(args: &[String]) -> Result<(), AppError> {
+pub fn run(args: &[String]) -> Result<(), Error> {
     let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
@@ -244,7 +237,7 @@ pub fn run(args: &[String]) -> Result<(), AppError> {
         }
     }
 
-    // Load config file {{{
+    // Load shell config file {{{
     // if let Some(ref cfg_file) = opts.config_file {
     //     info!("Found cfg file path: {:?}", cfg_file);
     //     if let Ok(env) = source_cfg_file(cfg_file) {
@@ -255,9 +248,9 @@ pub fn run(args: &[String]) -> Result<(), AppError> {
     //     };
     // };
     // }}}
-
+    // Load toml configuration file and deserialize
     let toml_file_path = get_def_cfg_file_path()?;
-    let cfg = read_config(&toml_file_path)?;
+    let cfg: Config = read_config(&toml_file_path)?;
     debug!("{:#?}", cfg);
 
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
