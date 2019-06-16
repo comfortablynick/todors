@@ -12,8 +12,10 @@ use std::{fs, io::Write, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
-/// Store constants of ANSI 256-color codes {{{
+// Color/formatting {{{1
+// struct Ansi {{{2
 #[derive(Debug)]
+/// Store constants of ANSI 256-color code
 struct Ansi;
 
 #[allow(dead_code)]
@@ -29,10 +31,9 @@ impl Ansi {
     const SKYBLUE: u8 = 111;
     const OLIVE: u8 = 113;
 }
-// }}}
 
 /// Get color for a given priority
-fn get_priority_color(c: char) -> Result<ColorSpec, Error> {
+fn get_priority_color(c: char) -> Result<ColorSpec, Error> { //{{{2
     let mut color = ColorSpec::new();
     match c {
         'A' => color.set_fg(Some(Color::Ansi256(Ansi::HOTPINK))),
@@ -50,7 +51,7 @@ fn get_priority_color(c: char) -> Result<ColorSpec, Error> {
 }
 
 /// Use regex to add color to priorities, projects and contexts
-fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), Error> {
+fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), Error> { //{{{2
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
     }
@@ -114,28 +115,12 @@ fn get_todo_file_path() -> Result<PathBuf, Error> {
     path.push("todo");
     path.push("todo.txt");
     Ok(path)
-}
+ }
 
-/// Gets toml config file path based on default location
-fn get_def_cfg_file_path() -> Result<PathBuf, Error> {
-    let mut path = PathBuf::new();
-    if let Some(home) = dirs::home_dir() {
-        path.push(home);
-    } else {
-        path.push("~");
-    }
-    // path.push("Dropbox");
-    // path.push("todo");
-    path.push("git");
-    path.push("todors");
-    path.push("todo.toml");
-    Ok(path)
-}
-
-// Shell config file {{{
+// Config file todo.cfg {{{1
 #[allow(dead_code)]
 /// Source todo.cfg using bash
-fn source_cfg_file(cfg_file_path: &str) -> Result<String, Error> {
+fn source_cfg_file(cfg_file_path: &str) -> Result<String, Error> { //{{{2
     let child = std::process::Command::new("/bin/bash")
         .arg("-c")
         .arg(format!("source {}; env", cfg_file_path))
@@ -146,14 +131,14 @@ fn source_cfg_file(cfg_file_path: &str) -> Result<String, Error> {
 /// Hold key value pairs for env vars
 #[allow(dead_code)]
 #[derive(Debug)]
-struct EnvVar<'a> {
+struct EnvVar<'a> { //{{{2
     name: &'a str,
     value: &'a str,
 }
 
 #[allow(dead_code)]
 /// Process strings into EnvVars
-fn process_cfg(cfg_item: &str) -> Result<EnvVar, Error> {
+fn process_cfg(cfg_item: &str) -> Result<EnvVar, Error> { //{{{2
     let mut split = cfg_item.split('=').map(str::trim);
     split
         .next()
@@ -171,12 +156,11 @@ fn process_cfg(cfg_item: &str) -> Result<EnvVar, Error> {
         })
         .ok_or_else(|| err_msg("unable to parse cfg item"))
 }
-//}}}
 
-// TOML configuration {{{
+// Config file toml {{{1
 #[derive(Debug, Deserialize)]
 /// Color settings for terminal output
-struct Colors {
+struct Colors { //{{{2
     context: Option<u8>,
     project: Option<u8>,
     done: Option<u8>,
@@ -185,21 +169,37 @@ struct Colors {
 
 /// General app settings
 #[derive(Debug, Deserialize)]
-struct Settings {
+struct Settings { //{{{2
     date_on_add: Option<bool>,
     default_action: Option<String>,
 }
 
 /// All configuration settings
 #[derive(Debug, Deserialize)]
-struct Config {
+struct Config { //{{{2
     colors: Colors,
     general: Settings,
 }
 
+/// Gets toml config file path based on default location
+fn get_def_cfg_file_path() -> Result<PathBuf, Error> { //{{{2
+    let mut path = PathBuf::new();
+    if let Some(home) = dirs::home_dir() {
+        path.push(home);
+    } else {
+        path.push("~");
+    }
+    // path.push("Dropbox");
+    // path.push("todo");
+    path.push("git");
+    path.push("todors");
+    path.push("todo.toml");
+    Ok(path)
+}
+
 #[allow(dead_code)]
 /// Read and process cfg from toml into Config object
-fn read_config(file_path: &PathBuf) -> Result<Config, Error> {
+fn read_config(file_path: &PathBuf) -> Result<Config, Error> { //{{{2
     use std::io::prelude::*;
     let mut config_toml = String::new();
     let mut file = std::fs::File::open(file_path)?;
@@ -208,10 +208,10 @@ fn read_config(file_path: &PathBuf) -> Result<Config, Error> {
     let cfg: Result<Config, Error> = toml::from_str(&config_toml).map_err(Error::from);
     cfg
 }
-//}}}
 
+// Main {{{1
 /// Entry point for main program logic
-pub fn run(args: &[String]) -> Result<(), Error> {
+pub fn run(args: &[String]) -> Result<(), Error> { //{{{2
     let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
@@ -248,6 +248,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     //     };
     // };
     // }}}
+
     // Load toml configuration file and deserialize
     let toml_file_path = get_def_cfg_file_path()?;
     let cfg: Config = read_config(&toml_file_path)?;
@@ -278,12 +279,13 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(test)] // {{{
+// Tests {{{1
+#[cfg(test)] //{{{2
 mod test {
     use std::str::FromStr;
 
     #[test]
-    fn str_to_task() {
+    fn str_to_task() { //{{{3
         let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31";
         let task = todo_txt::Task::from_str(line).expect("error parsing task");
         assert_eq!(task.subject, "Get new +pricing for +item @work");
@@ -295,4 +297,3 @@ mod test {
         assert_eq!(task.threshold_date, None);
     }
 }
-// }}}
