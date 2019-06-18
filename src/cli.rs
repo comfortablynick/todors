@@ -13,6 +13,17 @@ use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
 #[derive(Debug)]
+/// Contains parsed task data and original raw string
+struct Task {
+    /// Line number in todo.txt file
+    id: usize,
+    /// Task data parsed by todo_txt crate
+    parsed: Option<todo_txt::Task>,
+    /// Original unmodified text
+    raw: String,
+}
+
+#[derive(Debug)]
 /// Store constants of ANSI 256-color code
 struct Ansi;
 
@@ -49,14 +60,18 @@ fn get_priority_color(c: char) -> Result<ColorSpec, Error> {
 }
 
 /// Use regex to add color to priorities, projects and contexts
-fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result<(), Error> {
+fn format_buffer(
+    tasks: &[Task],
+    buf: &mut termcolor::Buffer,
+    opts: &args::Opt,
+) -> Result<(), Error> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
     }
-    let mut buf = bufwtr.buffer();
+    // let mut buf = bufwtr.buffer();
     let mut color = ColorSpec::new();
-    for ln in s {
-        let line = ln;
+    for task in tasks {
+        let line = &task.raw;
         if let Some(caps) = RE_PRIORITY.captures(&line) {
             let color = get_priority_color(
                 caps.get(1)
@@ -67,6 +82,13 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
             )?;
             buf.set_color(&color)?;
         }
+        // write line number (id)
+        write!(
+            buf,
+            "{:0ct$} ",
+            &task.id,
+            ct = tasks.len().to_string().len()
+        )?;
         for word in line.split_whitespace() {
             let first_char = word.chars().next();
             let prev_color = color.fg().cloned();
@@ -75,7 +97,7 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
                     if opts.hide_project % 2 == 0 {
                         color.set_fg(Some(Color::Ansi256(Ansi::LIME)));
                         buf.set_color(&color)?;
-                        write!(&mut buf, "{} ", word)?;
+                        write!(buf, "{} ", word)?;
                         color.set_fg(prev_color);
                         buf.set_color(&color)?;
                     }
@@ -84,20 +106,20 @@ fn format_buffer(s: &[String], bufwtr: BufferWriter, opts: &args::Opt) -> Result
                     if opts.hide_context % 2 == 0 {
                         color.set_fg(Some(Color::Ansi256(Ansi::LIGHTORANGE)));
                         buf.set_color(&color)?;
-                        write!(&mut buf, "{} ", word)?;
+                        write!(buf, "{} ", word)?;
                         color.set_fg(prev_color);
                         buf.set_color(&color)?;
                     }
                 }
                 _ => {
-                    write!(&mut buf, "{} ", word)?;
+                    write!(buf, "{} ", word)?;
                 }
             }
         }
         buf.reset()?;
-        writeln!(&mut buf)?;
+        writeln!(buf)?;
     }
-    bufwtr.print(&buf)?;
+    // bufwtr.print(&buf)?;
     Ok(())
 }
 
@@ -221,6 +243,44 @@ fn addm(tasks: &[String]) -> Result<(), Error> {
     Ok(())
 }
 
+/// List tasks from todo.txt file
+fn list(terms: Option<&[String]>, opts: &args::Opt) -> Result<(), Error> {
+    // TODO: remove after structopt update to allow Option<Vec<T>>
+    if let Some(t) = terms {
+        // TODO: handle filter by TERMS
+        info!("Listing with terms: {:?}", t);
+    } else {
+        info!("Listing without filter");
+    }
+    // Open todo.txt file
+    let todo_file = fs::read_to_string(get_todo_file_path()?)?;
+    let mut ctr = 0;
+    // Get non-empty lines from file
+    let tasks: Vec<Task> = todo_file
+        .lines()
+        .filter(|l| *l != "")
+        .map(|l| {
+            ctr += 1;
+            Task {
+                id: ctr,
+                parsed: todo_txt::parser::task(l).ok(),
+                raw: l.to_string(),
+            }
+        })
+        .collect();
+
+    trace!("Parsed tasks:\n{:#?}", tasks);
+
+    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+    let mut buf = bufwtr.buffer();
+    // fill buffer with formatted (colored) output
+    format_buffer(&tasks, &mut buf, &opts)?;
+    write!(buf, "--\nTODO: {} of {} tasks shown\n", ctr, tasks.len())?;
+    // print buffer
+    bufwtr.print(&buf)?;
+    Ok(())
+}
+
 /// Entry point for main program logic
 pub fn run(args: &[String]) -> Result<(), Error> {
     let opts = args::Opt::from_iter(args);
@@ -234,20 +294,32 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         std::env::set_var("TERM", "dumb");
     }
 
+    // Load toml configuration file and deserialize
+    let toml_file_path = get_def_cfg_file_path()?;
+    let cfg: Config = read_config(&toml_file_path)?;
+    debug!("{:#?}", cfg);
+
     match &opts.cmd {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
-            Command::List { terms } => info!("Listing with terms: {:?}", terms),
+            // TODO: see if structopt is handling Option<Vec>
+            Command::List { terms } => {
+                if terms.is_empty() {
+                    list(None, &opts)?;
+                } else {
+                    list(Some(terms), &opts)?;
+                }
+            }
             Command::Listall => info!("Listing all..."),
             Command::Addto => info!("Adding to..."),
             Command::Append { item, text } => info!("Appending: {:?} to task {}", text, item),
         },
         None => {
             info!("No command supplied; defaulting to List");
+            list(None, &opts)?;
         }
     }
-
     // Load shell config file {{{
     // if let Some(ref cfg_file) = opts.config_file {
     //     info!("Found cfg file path: {:?}", cfg_file);
@@ -259,53 +331,18 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     //     };
     // };
     // }}}
-
-    // Load toml configuration file and deserialize
-    let toml_file_path = get_def_cfg_file_path()?;
-    let cfg: Config = read_config(&toml_file_path)?;
-    debug!("{:#?}", cfg);
-
-    // Open todo.txt file
-    let todo_file = fs::read_to_string(get_todo_file_path()?)?;
-    // Get non-empty lines from todo.txt
-    let file_lines: Vec<&str> = todo_file.lines().filter(|l| *l != "").collect();
-
-    let tasks: Vec<todo_txt::Task> = file_lines
-        .iter()
-        .map(|l| todo_txt::parser::task(l).expect("couldn't parse string as task"))
-        .collect();
-
-    trace!("Parsed tasks:\n{:#?}", tasks);
-
-    let mut ctr = 0;
-    let lines: Vec<String> = file_lines
-        .iter()
-        .filter(|ln| **ln != "")
-        .map(|ln| {
-            ctr += 1;
-            format!(
-                "{:0ct$} {}",
-                ctr,
-                ln,
-                ct = file_lines.len().to_string().len()
-            )
-        })
-        .collect();
-
-    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    format_buffer(&lines, bufwtr, &opts)?;
-    println!("--\nTODO: {} of {} tasks shown", ctr, file_lines.len());
     Ok(())
 }
 
-// Tests {{{1
-#[cfg(test)] //{{{2
+// Tests {{{
+#[cfg(test)]
 mod test {
+    //{{{
     use std::str::FromStr;
 
     #[test]
     fn str_to_task() {
-        //{{{3
+        //{{{
         let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31";
         let task = todo_txt::Task::from_str(line).expect("error parsing task");
         assert_eq!(task.subject, "Get new +pricing for +item @work");
