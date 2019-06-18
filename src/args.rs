@@ -44,11 +44,11 @@ pub enum Command {
     /// Add line to todo.txt file
     #[structopt(name = "add", visible_alias = "a")]
     Add {
-        #[structopt(name = "todo")]
+        #[structopt(name = "task")]
         /// Todo item
         ///
         /// "THING I NEED TO DO +project @context"
-        todo: String,
+        task: String,
     },
 
     /// Add multiple lines to todo.txt file
@@ -61,8 +61,8 @@ pub enum Command {
         /// Adds FIRST THING I NEED TO DO to your todo.txt on its own line and{n}
         /// Adds SECOND THING I NEED TO DO to your todo.txt on its own line.{n}
         /// Project and context notation optional.
-        #[structopt(name = "todo")]
-        todo: String,
+        #[structopt(name = "tasks", value_delimiter = "\n")]
+        tasks: Vec<String>,
     },
 
     /// Add line of text to any file in the todo.txt directory

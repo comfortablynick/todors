@@ -8,7 +8,7 @@ use log::{debug, info, trace};
 use regex::{self, Regex};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::{fs, io::Write, path::PathBuf, str::FromStr};
+use std::{fs, io::Write, path::PathBuf};
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
@@ -113,7 +113,7 @@ fn get_todo_file_path() -> Result<PathBuf, Error> {
     path.push("todo");
     path.push("todo.txt");
     Ok(path)
- }
+}
 
 // todo.cfg {{{
 #[allow(dead_code)]
@@ -153,8 +153,8 @@ fn process_cfg(cfg_item: &str) -> Result<EnvVar, Error> {
                 .map(|value| EnvVar { name, value })
         })
         .ok_or_else(|| err_msg("unable to parse cfg item"))
-}//}}}
-// todo.toml {{{
+} //}}}
+  // todo.toml {{{
 #[derive(Debug, Deserialize)]
 /// Color settings for terminal output
 struct Colors {
@@ -206,6 +206,21 @@ fn read_config(file_path: &PathBuf) -> Result<Config, Error> {
     cfg
 }
 //}}}
+/// Add task to todo.txt file
+fn add(task: &str) -> Result<(), Error> {
+    info!("Adding {:?}", task);
+    Ok(())
+}
+
+/// Add multiple tasks to todo.txt file
+fn addm(tasks: &[String]) -> Result<(), Error> {
+    info!("Adding multiple: {:?}", tasks);
+    for task in tasks.iter() {
+        add(task)?;
+    }
+    Ok(())
+}
+
 /// Entry point for main program logic
 pub fn run(args: &[String]) -> Result<(), Error> {
     let opts = args::Opt::from_iter(args);
@@ -221,8 +236,8 @@ pub fn run(args: &[String]) -> Result<(), Error> {
 
     match &opts.cmd {
         Some(command) => match command {
-            Command::Add { todo } => info!("Adding: {:?}", todo),
-            Command::Addm { todo } => info!("Adding multiple: {:?}", todo),
+            Command::Add { task } => add(task)?,
+            Command::Addm { tasks } => addm(tasks)?,
             Command::List { terms } => info!("Listing with terms: {:?}", terms),
             Command::Listall => info!("Listing all..."),
             Command::Addto => info!("Adding to..."),
@@ -250,28 +265,36 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     let cfg: Config = read_config(&toml_file_path)?;
     debug!("{:#?}", cfg);
 
+    // Open todo.txt file
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
-    let mut tasks: Vec<todo_txt::Task> = Vec::with_capacity(50);
+    // Get non-empty lines from todo.txt
+    let file_lines: Vec<&str> = todo_file.lines().filter(|l| *l != "").collect();
 
-    let mut file_line_ct = 0;
-    for line in todo_file.lines() {
-        file_line_ct += 1;
-        tasks.push(todo_txt::Task::from_str(line).expect("couldn't parse string as text"));
-    }
+    let tasks: Vec<todo_txt::Task> = file_lines
+        .iter()
+        .map(|l| todo_txt::parser::task(l).expect("couldn't parse string as task"))
+        .collect();
+
     trace!("Parsed tasks:\n{:#?}", tasks);
 
     let mut ctr = 0;
-    let lines = todo_file
-        .lines()
+    let lines: Vec<String> = file_lines
+        .iter()
+        .filter(|ln| **ln != "")
         .map(|ln| {
             ctr += 1;
-            format!("{:0ct$} {}", ctr, ln, ct = file_line_ct.to_string().len())
+            format!(
+                "{:0ct$} {}",
+                ctr,
+                ln,
+                ct = file_lines.len().to_string().len()
+            )
         })
-        .collect::<Vec<String>>();
+        .collect();
 
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     format_buffer(&lines, bufwtr, &opts)?;
-    println!("--\nTODO: {} of {} tasks shown", ctr, file_line_ct);
+    println!("--\nTODO: {} of {} tasks shown", ctr, file_lines.len());
     Ok(())
 }
 
@@ -281,7 +304,8 @@ mod test {
     use std::str::FromStr;
 
     #[test]
-    fn str_to_task() { //{{{3
+    fn str_to_task() {
+        //{{{3
         let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31";
         let task = todo_txt::Task::from_str(line).expect("error parsing task");
         assert_eq!(task.subject, "Get new +pricing for +item @work");
