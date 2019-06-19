@@ -7,20 +7,33 @@ use failure::{err_msg, Error};
 use log::{debug, info, trace};
 use regex::{self, Regex};
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::{fs, io::Write, path::PathBuf};
+use std::{cmp::Ordering, collections::HashMap, fs, io::Write, path::PathBuf};
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 /// Contains parsed task data and original raw string
 struct Task {
     /// Line number in todo.txt file
     id: usize,
     /// Task data parsed by todo_txt crate
-    parsed: Option<todo_txt::Task>,
+    parsed: todo_txt::Task,
     /// Original unmodified text
     raw: String,
+}
+
+impl PartialOrd for Task {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Task {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.raw
+            .to_ascii_lowercase()
+            .cmp(&other.raw.to_ascii_lowercase())
+    }
 }
 
 #[derive(Debug)]
@@ -257,6 +270,25 @@ fn addm(tasks: &[String]) -> Result<(), Error> {
     Ok(())
 }
 
+// Use todo_txt crate ordering (same as raw cmp?) {{{
+// impl Ord for Task {
+//     fn cmp(&self, other: &Self) -> Ordering {
+//         if self.parsed.due_date != other.parsed.due_date {
+//             return self.parsed.due_date.cmp(&other.parsed.due_date);
+//         }
+//
+//         if self.parsed.priority != other.parsed.priority {
+//             return self.parsed.priority.cmp(&other.parsed.priority).reverse();
+//         }
+//
+//         if self.parsed.subject != other.parsed.subject {
+//             return self.parsed.subject.cmp(&other.parsed.subject);
+//         }
+//         Ordering::Equal
+//     }
+// }
+//}}}
+
 /// List tasks from todo.txt file
 fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
     // Open todo.txt file
@@ -269,12 +301,15 @@ fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
             task_ct += 1;
             Task {
                 id: task_ct,
-                parsed: todo_txt::parser::task(l).ok(),
+                parsed: todo_txt::parser::task(l).expect("couldn't parse string as task"),
                 raw: l.to_string(),
             }
         })
         .filter(|l| l.raw != "")
         .collect();
+    // tasks.sort();
+    // tasks.sort_by(|a, b| a.parsed.priority.cmp(&b.parsed.priority));
+    tasks.sort_by(|a, b| Ord::cmp(&a, &b));
     // Reset task_ct to exclude empty lines
     task_ct = tasks.len();
     if !terms.is_empty() {
@@ -353,7 +388,8 @@ pub fn run(args: &[String]) -> Result<(), Error> {
 
 // Tests
 #[cfg(test)]
-mod test {//{{{
+mod test {
+    //{{{
     use std::str::FromStr;
 
     #[test]
