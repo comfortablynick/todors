@@ -1,3 +1,4 @@
+/** Defines all arguments and commands */
 use structopt::StructOpt;
 
 /// Command line options
@@ -5,16 +6,21 @@ use structopt::StructOpt;
 #[structopt(
     name = "todors",
     about = "View and edit a file in todo.txt format",
-    raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage")
+    // Don't collapse all positionals into [ARGS]
+    raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage"),
+    // Don't print versions for each subcommand
+    raw(setting = "structopt::clap::AppSettings::VersionlessSubcommands")
 )]
 pub struct Opt {
     /// Hide context names in list output.
+    ///
     /// Use twice to show context names (default).
     #[structopt(short = "@", parse(from_occurrences))]
     pub hide_context: u8,
 
     /// Hide project names in list output.
-    /// Use twice to show project  names (default).
+    ///
+    /// Use twice to show project names (default).
     #[structopt(short = "+", parse(from_occurrences))]
     pub hide_project: u8,
 
@@ -22,16 +28,24 @@ pub struct Opt {
     #[structopt(short = "p")]
     pub plain: bool,
 
-    /// Verbose mode (-v, -vv, -vvv, etc.)
+    /// Increase log verbosity (can be passed multiple times)
+    ///
+    /// The default verbosity is ERROR. With this flag, it is set to:{n}
+    /// -v = WARN, -vv = INFO, -vvv = DEBUG, -vvvv = TRACE
     #[structopt(short = "v", parse(from_occurrences))]
-    pub verbose: u8,
+    pub verbosity: u8,
 
     /// Quiet debug messages
     #[structopt(short = "q")]
     pub quiet: bool,
 
     /// Use a config file other than the default ~/.todo/config
-    #[structopt(short = "d", name = "CONFIG_FILE", env = "TODOTXT_CFG_FILE")]
+    #[structopt(
+        short = "d",
+        name = "CONFIG_FILE",
+        env = "TODOTXT_CFG_FILE",
+        hide_env_values = true
+    )]
     pub config_file: Option<String>,
 
     /// List contents of todo.txt file
@@ -44,7 +58,7 @@ pub enum Command {
     /// Add line to todo.txt file
     #[structopt(name = "add", visible_alias = "a")]
     Add {
-        #[structopt(name = "task")]
+        #[structopt(name = "TASK")]
         /// Todo item
         ///
         /// "THING I NEED TO DO +project @context"
@@ -61,7 +75,7 @@ pub enum Command {
         /// Adds FIRST THING I NEED TO DO to your todo.txt on its own line and{n}
         /// Adds SECOND THING I NEED TO DO to your todo.txt on its own line.{n}
         /// Project and context notation optional.
-        #[structopt(name = "tasks", value_delimiter = "\n")]
+        #[structopt(name = "TASKS", value_delimiter = "\n")]
         tasks: Vec<String>,
     },
 
@@ -73,11 +87,11 @@ pub enum Command {
     #[structopt(name = "append", visible_alias = "app")]
     Append {
         /// Append text to end of this line number
-        #[structopt(name = "item")]
+        #[structopt(name = "ITEM")]
         item: u32,
 
         /// Text to append (quotes optional)
-        #[structopt(name = "text")]
+        #[structopt(name = "TEXT")]
         text: String,
     },
 
@@ -85,7 +99,7 @@ pub enum Command {
     #[structopt(name = "list", visible_alias = "ls")]
     List {
         /// Term to search for
-        #[structopt(name = "term")]
+        #[structopt(name = "TERM")]
         terms: Vec<String>,
     },
 

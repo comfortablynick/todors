@@ -64,11 +64,11 @@ fn format_buffer(
     tasks: &[Task],
     buf: &mut termcolor::Buffer,
     opts: &args::Opt,
+    total_task_ct: usize,
 ) -> Result<(), Error> {
     lazy_static! {
         static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
     }
-    // let mut buf = bufwtr.buffer();
     let mut color = ColorSpec::new();
     for task in tasks {
         let line = &task.raw;
@@ -87,7 +87,7 @@ fn format_buffer(
             buf,
             "{:0ct$} ",
             &task.id,
-            ct = tasks.len().to_string().len()
+            ct = total_task_ct.to_string().len()
         )?;
         for word in line.split_whitespace() {
             let first_char = word.chars().next();
@@ -228,6 +228,20 @@ fn read_config(file_path: &PathBuf) -> Result<Config, Error> {
     cfg
 }
 //}}}
+
+/// Filter tasks list against terms
+fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result<(), Error> {
+    tasks.retain(|t| {
+        for term in terms.iter() {
+            if !t.raw.contains(term) {
+                return false;
+            }
+        }
+        true
+    });
+    Ok(())
+}
+
 /// Add task to todo.txt file
 fn add(task: &str) -> Result<(), Error> {
     info!("Adding {:?}", task);
@@ -244,40 +258,48 @@ fn addm(tasks: &[String]) -> Result<(), Error> {
 }
 
 /// List tasks from todo.txt file
-fn list(terms: Option<&[String]>, opts: &args::Opt) -> Result<(), Error> {
-    // TODO: remove after structopt update to allow Option<Vec<T>>
-    if let Some(t) = terms {
-        // TODO: handle filter by TERMS
-        info!("Listing with terms: {:?}", t);
-    } else {
-        info!("Listing without filter");
-    }
+fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
     // Open todo.txt file
     let todo_file = fs::read_to_string(get_todo_file_path()?)?;
-    let mut ctr = 0;
+    let mut task_ct = 0;
     // Get non-empty lines from file
-    let tasks: Vec<Task> = todo_file
+    let mut tasks: Vec<Task> = todo_file
         .lines()
-        .filter(|l| *l != "")
         .map(|l| {
-            ctr += 1;
+            task_ct += 1;
             Task {
-                id: ctr,
+                id: task_ct,
                 parsed: todo_txt::parser::task(l).ok(),
                 raw: l.to_string(),
             }
         })
+        .filter(|l| l.raw != "")
         .collect();
+    // Reset task_ct to exclude empty lines
+    task_ct = tasks.len();
+    if !terms.is_empty() {
+        info!("Listing with terms: {:?}", terms);
+        apply_filter(&mut tasks, terms)?;
+    } else {
+        info!("Listing without filter");
+    }
 
     trace!("Parsed tasks:\n{:#?}", tasks);
 
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     let mut buf = bufwtr.buffer();
     // fill buffer with formatted (colored) output
-    format_buffer(&tasks, &mut buf, &opts)?;
-    write!(buf, "--\nTODO: {} of {} tasks shown\n", ctr, tasks.len())?;
+    format_buffer(&tasks, &mut buf, &opts, task_ct)?;
+    // write footer
+    write!(
+        buf,
+        "--\nTODO: {} of {} tasks shown\n",
+        tasks.len(),
+        task_ct
+    )?;
     // print buffer
     bufwtr.print(&buf)?;
+    // debug!("{}", std::str::from_utf8(buf.as_slice())?);
     Ok(())
 }
 
@@ -286,7 +308,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
-        logger::init_logger(opts.verbose);
+        logger::init_logger(opts.verbosity);
         info!("Running with args: {:?}", args);
         info!("Parsed options:\n{:#?}", opts);
     }
@@ -303,13 +325,8 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
-            // TODO: see if structopt is handling Option<Vec>
             Command::List { terms } => {
-                if terms.is_empty() {
-                    list(None, &opts)?;
-                } else {
-                    list(Some(terms), &opts)?;
-                }
+                list(terms, &opts)?;
             }
             Command::Listall => info!("Listing all..."),
             Command::Addto => info!("Adding to..."),
@@ -317,7 +334,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         },
         None => {
             info!("No command supplied; defaulting to List");
-            list(None, &opts)?;
+            list(&[], &opts)?;
         }
     }
     // Load shell config file {{{
@@ -334,10 +351,9 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     Ok(())
 }
 
-// Tests {{{
+// Tests
 #[cfg(test)]
-mod test {
-    //{{{
+mod test {//{{{
     use std::str::FromStr;
 
     #[test]
