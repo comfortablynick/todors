@@ -24,6 +24,12 @@ pub struct Opt {
     #[structopt(short = "+", parse(from_occurrences))]
     pub hide_project: u8,
 
+    /// Hide priority labels in list output.
+    ///
+    /// Use twice to show priority labels (default).
+    #[structopt(short = "P", parse(from_occurrences))]
+    pub hide_priority: u8,
+
     /// Plain mode turns off colors
     #[structopt(short = "p")]
     pub plain: bool,
@@ -105,5 +111,17 @@ pub enum Command {
 
     /// List all todos
     #[structopt(name = "listall", visible_alias = "lsa")]
-    Listall,
+    Listall {
+        /// Term to search for
+        #[structopt(name = "TERM")]
+        terms: Vec<String>,
+    },
+
+    /// List all tasks with priorities (optionally filtered)
+    #[structopt(name = "listpri", visible_alias = "lsp")]
+    Listpri {
+        /// Priorities to search for
+        #[structopt(name = "PRIORITY")]
+        priorities: Vec<String>,
+    },
 }

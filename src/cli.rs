@@ -1,11 +1,13 @@
-/** Main program logic */
+// #![allow(dead_code)]
+// #![allow(unused_imports)]
+//! Main program logic
+// use regex::{self, Regex};
 use crate::{
     args::{self, Command},
     util::logger,
 };
 use failure::{err_msg, Error};
 use log::{debug, info, trace};
-use regex::{self, Regex};
 use serde::Deserialize;
 use std::{cmp::Ordering, collections::HashMap, fs, io::Write, path::PathBuf};
 use structopt::StructOpt;
@@ -55,19 +57,20 @@ impl Ansi {
 }
 
 /// Get color for a given priority
-fn get_priority_color(c: char) -> Result<ColorSpec, Error> {
+fn get_priority_color(n: u8) -> Result<ColorSpec, Error> {
+    // TODO: get priority colors from config
     let mut color = ColorSpec::new();
-    match c {
-        'A' => color.set_fg(Some(Color::Ansi256(Ansi::HOTPINK))),
-        'B' => color.set_fg(Some(Color::Ansi256(Ansi::GREEN))),
-        'C' => color
+    match n {
+        0 => color.set_fg(Some(Color::Ansi256(Ansi::HOTPINK))),
+        1 => color.set_fg(Some(Color::Ansi256(Ansi::GREEN))),
+        2 => color
             .set_fg(Some(Color::Ansi256(Ansi::BLUE)))
             .set_bold(true),
-        'D' => color
+        3 => color
             .set_fg(Some(Color::Ansi256(Ansi::TURQUOISE)))
             .set_bold(true),
-        'E'...'Z' => color.set_fg(Some(Color::Ansi256(Ansi::TAN))),
-        _ => unreachable!("priority `{}` not found!", &c),
+        4...25 => color.set_fg(Some(Color::Ansi256(Ansi::TAN))),
+        _ => unreachable!("priority `{}` out of range!", &n),
     };
     Ok(color)
 }
@@ -79,20 +82,11 @@ fn format_buffer(
     opts: &args::Opt,
     total_task_ct: usize,
 ) -> Result<(), Error> {
-    lazy_static! {
-        static ref RE_PRIORITY: Regex = Regex::new(r"(?m)\(([A-Z])\).*$").unwrap();
-    }
     let mut color = ColorSpec::new();
     for task in tasks {
         let line = &task.raw;
-        if let Some(caps) = RE_PRIORITY.captures(&line) {
-            let color = get_priority_color(
-                caps.get(1)
-                    .map_or("", |c| c.as_str())
-                    .chars()
-                    .next()
-                    .expect("error getting priority"),
-            )?;
+        if task.parsed.priority < 26 {
+            let color = get_priority_color(task.parsed.priority)?;
             buf.set_color(&color)?;
         }
         // write line number (id)
@@ -132,18 +126,13 @@ fn format_buffer(
         buf.reset()?;
         writeln!(buf)?;
     }
-    // bufwtr.print(&buf)?;
     Ok(())
 }
 
 /// Gets path based on default location
 fn get_todo_file_path() -> Result<PathBuf, Error> {
     let mut path = PathBuf::new();
-    if let Some(home) = dirs::home_dir() {
-        path.push(home);
-    } else {
-        path.push("~");
-    }
+    path.push(dirs::home_dir().ok_or_else(|| err_msg("cannot find home dir"))?);
     path.push("Dropbox");
     path.push("todo");
     path.push("todo.txt");
@@ -289,13 +278,11 @@ fn addm(tasks: &[String]) -> Result<(), Error> {
 // }
 //}}}
 
-/// List tasks from todo.txt file
-fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
-    // Open todo.txt file
-    let todo_file = fs::read_to_string(get_todo_file_path()?)?;
+/// Load todo.txt file and parse into Task objects
+fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>, Error> {
+    let todo_file = fs::read_to_string(todo_file)?;
     let mut task_ct = 0;
-    // Get non-empty lines from file
-    let mut tasks: Vec<Task> = todo_file
+    Ok(todo_file
         .lines()
         .map(|l| {
             task_ct += 1;
@@ -305,13 +292,20 @@ fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
                 raw: l.to_string(),
             }
         })
+        // Remove empty lines
         .filter(|l| l.raw != "")
-        .collect();
+        .collect())
+}
+
+/// List tasks from todo.txt file
+fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
+    // Open todo.txt file
+    let todo_file = get_todo_file_path()?;
+    let mut tasks = get_tasks(todo_file)?;
     // tasks.sort();
-    // tasks.sort_by(|a, b| a.parsed.priority.cmp(&b.parsed.priority));
     tasks.sort_by(|a, b| Ord::cmp(&a, &b));
     // Reset task_ct to exclude empty lines
-    task_ct = tasks.len();
+    let task_ct = tasks.len();
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
         apply_filter(&mut tasks, terms)?;
@@ -363,7 +357,8 @@ pub fn run(args: &[String]) -> Result<(), Error> {
             Command::List { terms } => {
                 list(terms, &opts)?;
             }
-            Command::Listall => info!("Listing all..."),
+            Command::Listall { terms } => info!("Listing all {:?}", terms),
+            Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
             Command::Addto => info!("Adding to..."),
             Command::Append { item, text } => info!("Appending: {:?} to task {}", text, item),
         },
