@@ -96,6 +96,7 @@ fn format_buffer(
             &task.id,
             ct = total_task_ct.to_string().len()
         )?;
+        // TODO: figure out how to add the proper amount of whitespace back in
         for word in line.split_whitespace() {
             let first_char = word.chars().next();
             let prev_color = color.fg().cloned();
@@ -104,7 +105,9 @@ fn format_buffer(
                     if opts.hide_project % 2 == 0 {
                         color.set_fg(Some(Color::Ansi256(Ansi::LIME)));
                         buf.set_color(&color)?;
-                        write!(buf, "{} ", word)?;
+                        write!(buf, "{}", word)?;
+                        buf.reset()?;
+                        write!(buf, " ")?;
                         color.set_fg(prev_color);
                         buf.set_color(&color)?;
                     }
@@ -113,7 +116,9 @@ fn format_buffer(
                     if opts.hide_context % 2 == 0 {
                         color.set_fg(Some(Color::Ansi256(Ansi::LIGHTORANGE)));
                         buf.set_color(&color)?;
-                        write!(buf, "{} ", word)?;
+                        write!(buf, "{}", word)?;
+                        buf.reset()?;
+                        write!(buf, " ")?;
                         color.set_fg(prev_color);
                         buf.set_color(&color)?;
                     }
@@ -123,10 +128,27 @@ fn format_buffer(
                 }
             }
         }
-        buf.reset()?;
+        if task.parsed.priority < 26 {
+            buf.reset()?;
+        }
         writeln!(buf)?;
     }
     Ok(())
+}
+
+#[allow(dead_code)]
+/// Get output of todo.sh `list` command
+fn get_todo_sh_output(
+    argv: Option<&[&str]>,
+    sort_cmd: Option<&str>,
+) -> Result<std::process::Output, Error> {
+    let sort_cmd = sort_cmd.unwrap_or("sort -f -k 2");
+    debug!("TODOTXT_SORT_COMMAND={}", sort_cmd);
+    std::process::Command::new("todo.sh")
+        .args(argv.unwrap_or_default())
+        .env("TODOTXT_SORT_COMMAND", sort_cmd)
+        .output()
+        .map_err(Error::from)
 }
 
 /// Gets path based on default location
@@ -298,13 +320,12 @@ fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>, Error> {
 }
 
 /// List tasks from todo.txt file
-fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
+fn list(terms: &[String], buf: &mut termcolor::Buffer, opts: &args::Opt) -> Result<(), Error> {
     // Open todo.txt file
     let todo_file = get_todo_file_path()?;
     let mut tasks = get_tasks(todo_file)?;
     // tasks.sort();
-    tasks.sort_by(|a, b| Ord::cmp(&a, &b));
-    // Reset task_ct to exclude empty lines
+    tasks.sort_by(|a, b| Ord::cmp(&a.id, &b.id));
     let task_ct = tasks.len();
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
@@ -315,10 +336,9 @@ fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
 
     trace!("Parsed tasks:\n{:#?}", tasks);
 
-    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    let mut buf = bufwtr.buffer();
     // fill buffer with formatted (colored) output
-    format_buffer(&tasks, &mut buf, &opts, task_ct)?;
+    format_buffer(&tasks, buf, &opts, task_ct)?;
+
     // write footer
     write!(
         buf,
@@ -326,9 +346,6 @@ fn list(terms: &[String], opts: &args::Opt) -> Result<(), Error> {
         tasks.len(),
         task_ct
     )?;
-    // print buffer
-    bufwtr.print(&buf)?;
-    // debug!("{}", std::str::from_utf8(buf.as_slice())?);
     Ok(())
 }
 
@@ -350,12 +367,15 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     let cfg: Config = read_config(&toml_file_path)?;
     debug!("{:#?}", cfg);
 
+    // create color buffer and writer
+    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+    let mut buf = bufwtr.buffer();
     match &opts.cmd {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
             Command::List { terms } => {
-                list(terms, &opts)?;
+                list(terms, &mut buf, &opts)?;
             }
             Command::Listall { terms } => info!("Listing all {:?}", terms),
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
@@ -364,7 +384,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         },
         None => {
             info!("No command supplied; defaulting to List");
-            list(&[], &opts)?;
+            list(&[], &mut buf, &opts)?;
         }
     }
     // Load shell config file {{{
@@ -378,6 +398,18 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     //     };
     // };
     // }}}
+    debug!(
+        "todo.sh output:\n{:?}",
+        std::str::from_utf8(&get_todo_sh_output(None, Some("sort"))?.stdout)?
+    );
+    if !buf.is_empty() {
+        debug!(
+            "Buffer contents:\n{:?}",
+            std::str::from_utf8(buf.as_slice())?
+        );
+        // print buffer
+        bufwtr.print(&buf)?;
+    }
     Ok(())
 }
 

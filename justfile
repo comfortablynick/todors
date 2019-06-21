@@ -15,6 +15,7 @@ fix:
 build-release:
 	cargo build --release
 
+# install and run
 install:
 	cargo install --path . -f
 	todors
@@ -25,3 +26,7 @@ run:
 # run with --quiet
 runq:
 	todors -q
+
+# run with verbosity 2 (-vv)
+runv:
+	cargo run --release -- -vv
