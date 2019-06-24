@@ -9,9 +9,17 @@ use crate::{
 use failure::{err_msg, Error};
 use log::{debug, info, trace};
 use serde::Deserialize;
-use std::{cmp::Ordering, collections::HashMap, fs, io::Write, path::PathBuf};
+use std::{cmp::Ordering, fs, io::Write, path::PathBuf};
 use structopt::StructOpt;
 use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
+
+#[derive(Debug)]
+/// Wrapper that holds all current settings
+struct Context {
+    opts: args::Opt,
+    settings: Settings,
+    styles: Vec<Style>,
+}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 /// Contains parsed task data and original raw string
@@ -56,22 +64,24 @@ impl Ansi {
     const OLIVE: u8 = 113;
 }
 
-/// Get color for a given priority
-fn get_priority_color(n: u8) -> Result<ColorSpec, Error> {
-    // TODO: get priority colors from config
+/// Get item style from preferences (or default)
+fn get_style(name: &str, ctx: &Context) -> Result<ColorSpec, Error> {
+    let default_style = Style::default(&name);
+    let style = ctx
+        .styles
+        .iter()
+        .find(|i| i.name.to_ascii_lowercase() == name)
+        .unwrap_or(&default_style);
     let mut color = ColorSpec::new();
-    match n {
-        0 => color.set_fg(Some(Color::Ansi256(Ansi::HOTPINK))),
-        1 => color.set_fg(Some(Color::Ansi256(Ansi::GREEN))),
-        2 => color
-            .set_fg(Some(Color::Ansi256(Ansi::BLUE)))
-            .set_bold(true),
-        3 => color
-            .set_fg(Some(Color::Ansi256(Ansi::TURQUOISE)))
-            .set_bold(true),
-        4...25 => color.set_fg(Some(Color::Ansi256(Ansi::TAN))),
-        _ => unreachable!("priority `{}` out of range!", &n),
-    };
+    if let Some(fg) = style.color_fg {
+        color.set_fg(Some(Color::Ansi256(fg)));
+    }
+    if let Some(bg) = style.color_bg {
+        color.set_bg(Some(Color::Ansi256(bg)));
+    }
+    color.set_bold(style.bold.unwrap_or(false));
+    color.set_intense(style.intense.unwrap_or(false));
+    color.set_underline(style.underline.unwrap_or(false));
     Ok(color)
 }
 
@@ -79,16 +89,16 @@ fn get_priority_color(n: u8) -> Result<ColorSpec, Error> {
 fn format_buffer(
     tasks: &[Task],
     buf: &mut termcolor::Buffer,
-    opts: &args::Opt,
+    ctx: &Context,
     total_task_ct: usize,
 ) -> Result<(), Error> {
-    let mut color = ColorSpec::new();
+    // let mut color = ColorSpec::new();
     for task in tasks {
         let line = &task.raw;
-        if task.parsed.priority < 26 {
-            let color = get_priority_color(task.parsed.priority)?;
-            buf.set_color(&color)?;
-        }
+        let mut pri_name = String::from("pri_");
+        pri_name.push((task.parsed.priority + 97) as char); // -> 0 == 'a'
+        let color = get_style(&pri_name, ctx)?;
+        buf.set_color(&color)?;
         // write line number (id)
         write!(
             buf,
@@ -99,28 +109,24 @@ fn format_buffer(
         // TODO: figure out how to add the proper amount of whitespace back in
         for word in line.split_whitespace() {
             let first_char = word.chars().next();
-            let prev_color = color.fg().cloned();
+            let prev_color = color.clone();
             match first_char {
                 Some('+') => {
-                    if opts.hide_project % 2 == 0 {
-                        color.set_fg(Some(Color::Ansi256(Ansi::LIME)));
-                        buf.set_color(&color)?;
+                    if ctx.opts.hide_project % 2 == 0 {
+                        buf.set_color(&get_style("project", ctx)?)?;
                         write!(buf, "{}", word)?;
                         buf.reset()?;
                         write!(buf, " ")?;
-                        color.set_fg(prev_color);
-                        buf.set_color(&color)?;
+                        buf.set_color(&prev_color)?;
                     }
                 }
                 Some('@') => {
-                    if opts.hide_context % 2 == 0 {
-                        color.set_fg(Some(Color::Ansi256(Ansi::LIGHTORANGE)));
-                        buf.set_color(&color)?;
+                    if ctx.opts.hide_context % 2 == 0 {
+                        buf.set_color(&get_style("context", ctx)?)?;
                         write!(buf, "{}", word)?;
                         buf.reset()?;
                         write!(buf, " ")?;
-                        color.set_fg(prev_color);
-                        buf.set_color(&color)?;
+                        buf.set_color(&prev_color)?;
                     }
                 }
                 _ => {
@@ -128,9 +134,9 @@ fn format_buffer(
                 }
             }
         }
-        if task.parsed.priority < 26 {
-            buf.reset()?;
-        }
+        // if task.parsed.priority < 26 {
+        buf.reset()?;
+        // }
         writeln!(buf)?;
     }
     Ok(())
@@ -201,13 +207,40 @@ fn process_cfg(cfg_item: &str) -> Result<EnvVar, Error> {
         .ok_or_else(|| err_msg("unable to parse cfg item"))
 } //}}}
   // todo.toml {{{
+
 #[derive(Debug, Deserialize)]
 /// Color settings for terminal output
-struct Colors {
-    context: Option<u8>,
-    project: Option<u8>,
-    done: Option<u8>,
-    priority: HashMap<char, u8>,
+struct Style {
+    name: String,
+    color_fg: Option<u8>,
+    color_bg: Option<u8>,
+    bold: Option<bool>,
+    intense: Option<bool>,
+    underline: Option<bool>,
+}
+
+impl Style {
+    fn default(name: &str) -> Style {
+        let mut default = Style {
+            name: name.into(),
+            color_fg: None,
+            color_bg: None,
+            bold: None,
+            intense: None,
+            underline: None,
+        };
+        match name {
+            "project" => default.color_fg = Some(Ansi::LIME),
+            "context" => default.color_fg = Some(Ansi::LIGHTORANGE),
+            "pri_a" => default.color_fg = Some(Ansi::HOTPINK),
+            "pri_b" => default.color_fg = Some(Ansi::GREEN),
+            "pri_c" => default.color_fg = Some(Ansi::BLUE),
+            "pri_d" => default.color_fg = Some(Ansi::TURQUOISE),
+            "pri_x" => default.color_fg = Some(Ansi::TAN),
+            _ => default.color_fg = None,
+        }
+        default
+    }
 }
 
 /// General app settings
@@ -220,8 +253,8 @@ struct Settings {
 /// All configuration settings
 #[derive(Debug, Deserialize)]
 struct Config {
-    colors: Colors,
     general: Settings,
+    styles: Vec<Style>,
 }
 
 /// Gets toml config file path based on default location
@@ -320,7 +353,7 @@ fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>, Error> {
 }
 
 /// List tasks from todo.txt file
-fn list(terms: &[String], buf: &mut termcolor::Buffer, opts: &args::Opt) -> Result<(), Error> {
+fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result<(), Error> {
     // Open todo.txt file
     let todo_file = get_todo_file_path()?;
     let mut tasks = get_tasks(todo_file)?;
@@ -337,7 +370,7 @@ fn list(terms: &[String], buf: &mut termcolor::Buffer, opts: &args::Opt) -> Resu
     trace!("Parsed tasks:\n{:#?}", tasks);
 
     // fill buffer with formatted (colored) output
-    format_buffer(&tasks, buf, &opts, task_ct)?;
+    format_buffer(&tasks, buf, &ctx, task_ct)?;
 
     // write footer
     write!(
@@ -355,27 +388,30 @@ pub fn run(args: &[String]) -> Result<(), Error> {
 
     if !opts.quiet {
         logger::init_logger(opts.verbosity);
-        info!("Running with args: {:?}", args);
-        info!("Parsed options:\n{:#?}", opts);
     }
     if opts.plain {
         std::env::set_var("TERM", "dumb");
     }
-
-    // Load toml configuration file and deserialize
+    info!("Running with args: {:?}", args);
+    // TODO: make this an option in case no config exists
     let toml_file_path = get_def_cfg_file_path()?;
     let cfg: Config = read_config(&toml_file_path)?;
-    debug!("{:#?}", cfg);
+    let ctx = Context {
+        opts,
+        settings: cfg.general,
+        styles: cfg.styles,
+    };
+    debug!("{:#?}", ctx);
 
     // create color buffer and writer
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     let mut buf = bufwtr.buffer();
-    match &opts.cmd {
+    match &ctx.opts.cmd {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
             Command::List { terms } => {
-                list(terms, &mut buf, &opts)?;
+                list(terms, &mut buf, &ctx)?;
             }
             Command::Listall { terms } => info!("Listing all {:?}", terms),
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
@@ -384,7 +420,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         },
         None => {
             info!("No command supplied; defaulting to List");
-            list(&[], &mut buf, &opts)?;
+            list(&[], &mut buf, &ctx)?;
         }
     }
     // Load shell config file {{{
@@ -398,12 +434,12 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     //     };
     // };
     // }}}
-    debug!(
+    trace!(
         "todo.sh output:\n{:?}",
         std::str::from_utf8(&get_todo_sh_output(None, Some("sort"))?.stdout)?
     );
     if !buf.is_empty() {
-        debug!(
+        trace!(
             "Buffer contents:\n{:?}",
             std::str::from_utf8(buf.as_slice())?
         );

@@ -9,7 +9,7 @@ done = 198
 project = 154
 context = 215
 
-# [colors.fg]
+# Colors from original todo.cfg
 # pink = '\033[38;5;211m'
 # orange = '\033[38;5;203m'
 # skyblue = '\033[38;5;111m'
@@ -24,15 +24,49 @@ context = 215
 # lightred = '\033[38;5;203m'
 # jade = '\033[38;5;35m'
 # lime = '\033[38;5;154m'
-#
-[colors.priority]
-# Color definition for priority
-A = 198
-B = 2
-C = 4
-D = 37
-X = 179
 
-#
-# # Color unless explicitly defined
-# X = 'tan'
+# Styles
+# Fields available based on rust `termcolor` crate
+# Ex:
+# ```
+# [[styles]]
+# name = 'project'
+# color_fg = 154
+# color_bg = 0
+# bold = false
+# intense = false
+# underline = false
+# ```
+[[styles]]
+name = 'done'
+color_fg = 198
+
+[[styles]]
+name = 'project'
+color_fg = 154
+
+[[styles]]
+name = 'context'
+color_fg = 215
+
+[[styles]]
+name = 'pri_a'
+color_fg = 198
+
+[[styles]]
+name = 'pri_b'
+color_fg = 2
+
+[[styles]]
+name = 'pri_c'
+color_fg = 4
+bold = true
+
+[[styles]]
+name = 'pri_d'
+color_fg = 37
+bold = true
+
+[[styles]]
+name = 'pri_e'
+color_fg = 179
