@@ -9,21 +9,64 @@ done = 198
 project = 154
 context = 215
 
-# Colors from original todo.cfg
-# pink = '\033[38;5;211m'
-# orange = '\033[38;5;203m'
-# skyblue = '\033[38;5;111m'
-# mediumgrey = '\033[38;5;246m'
-# lavender = '\033[38;5;183m'
-# tan = '\033[38;5;179m'
-# forest = '\033[38;5;22m'
-# maroon = '\033[38;5;52m'
-# hotpink = '\033[38;5;198m'
-# mintgreen = '\033[38;5;121m'
-# lightorange = '\033[38;5;215m'
-# lightred = '\033[38;5;203m'
-# jade = '\033[38;5;35m'
-# lime = '\033[38;5;154m'
+[colors.fg]
+BLACK = '\\033[0;30m'
+RED = '\\033[0;31m'
+GREEN = '\\033[0;32m'
+BROWN = '\\033[0;33m'
+BLUE = '\\033[0;34m'
+PURPLE = '\\033[0;35m'
+CYAN = '\\033[0;36m'
+LIGHT_GREY = '\\033[0;37m'
+DARK_GREY = '\\033[1;30m'
+LIGHT_RED = '\\033[1;31m'
+LIGHT_GREEN = '\\033[1;32m'
+YELLOW = '\\033[1;33m'
+LIGHT_BLUE = '\\033[1;34m'
+LIGHT_PURPLE = '\\033[1;35m'
+LIGHT_CYAN = '\\033[1;36m'
+WHITE = '\\033[1;37m'
+DEFAULT = '\\033[0m'
+
+# high (256) color
+PINK = '\\033[38;5;211m'
+ORANGE = '\\033[38;5;203m'
+SKYBLUE = '\\033[38;5;111m'
+MEDIUMGREY = '\\033[38;5;246m'
+LAVENDER = '\\033[38;5;183m'
+TAN = '\\033[38;5;179m'
+FOREST = '\\033[38;5;22m'
+GREEN = '\\033[38;5;2m'
+MAROON = '\\033[38;5;52m'
+HOTPINK = '\\033[38;5;198m'
+MINTGREEN = '\\033[38;5;121m'
+LIGHTORANGE = '\\033[38;5;215m'
+LIGHTRED = '\\033[38;5;203m'
+LIGHTBLUE = '\\033[38;5;4m'
+LIGHTCYAN = '\\033[38;5;37m'
+JADE = '\\033[38;5;35m'
+LIME = '\\033[38;5;154m'
+
+[colors.bg]
+# background colors
+PINK_BG = '\\033[48;5;211m'
+ORANGE_BG = '\\033[48;5;203m'
+SKYBLUE_BG = '\\033[48;5;111m'
+MEDIUMGREY_BG = '\\033[48;5;246m'
+LAVENDER_BG = '\\033[48;5;183m'
+TAN_BG = '\\033[48;5;179m'
+FOREST_BG = '\\033[48;5;22m'
+MAROON_BG = '\\033[48;5;52m'
+HOTPINK_BG = '\\033[48;5;198m'
+MINTGREEN_BG = '\\033[48;5;121m'
+LIGHTORANGE_BG = '\\033[48;5;215m'
+LIGHTRED_BG = '\\033[48;5;203m'
+JADE_BG = '\\033[48;5;35m'
+LIME_BG = '\\033[48;5;154m'
+
+[colors.attrib]
+UNDERLINE = '\\033[4m'
+BOLD = '\\033[1m'
 
 # Styles
 # Fields available based on rust `termcolor` crate
