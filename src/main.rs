@@ -1,8 +1,8 @@
 // #[macro_use]
 // extern crate lazy_static;
-mod args;
-mod cli;
-mod util;
+// mod args;
+// mod cli;
+// mod util;
 use termcolor::{BufferWriter, ColorChoice};
 
 fn main() -> Result<(), failure::Error> {
@@ -19,6 +19,6 @@ fn main() -> Result<(), failure::Error> {
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     let mut buf = bufwtr.buffer();
 
-    cli::run(&args, &mut buf)?;
+    todors::run(&args, &mut buf)?;
     bufwtr.print(&buf).map_err(failure::Error::from)
 }

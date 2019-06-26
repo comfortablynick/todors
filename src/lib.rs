@@ -1,11 +1,4 @@
-// #![allow(dead_code)]
-// #![allow(unused_imports)]
-//! Main program logic
-// use regex::{self, Regex};
-use crate::{
-    args::{self, Command},
-    util::logger,
-};
+use args::Command;
 use failure::{err_msg, Error};
 use log::{debug, info, trace};
 use serde::Deserialize;
@@ -143,9 +136,8 @@ fn format_buffer(
     Ok(())
 }
 
-#[allow(dead_code)]
 /// Get output of todo.sh `list` command
-fn get_todo_sh_output(
+pub fn get_todo_sh_output(
     argv: Option<&[&str]>,
     sort_cmd: Option<&str>,
 ) -> Result<std::process::Output, Error> {
@@ -445,34 +437,203 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(test)] //{{{
-mod test {
-    use super::*;
-    use pretty_assertions::assert_eq;
+// args :: Build CLI Arguments {{{1
+pub mod args {
+    /** Defines all arguments and commands */
+    use structopt::StructOpt;
 
-    #[test]
-    fn str_to_task() {
-        use std::str::FromStr;
-        let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31";
-        let task = todo_txt::Task::from_str(line).expect("error parsing task");
-        assert_eq!(task.subject, "Get new +pricing for +item @work");
-        assert_eq!(task.priority, 2);
-        assert_eq!(task.contexts, vec!("work".to_owned()));
-        assert_eq!(task.projects, vec!("item".to_owned(), "pricing".to_owned()));
-        assert_eq!(task.finish_date, None);
-        assert_eq!(task.due_date, Some(todo_txt::Date::from_ymd(2019, 12, 31)));
-        assert_eq!(task.threshold_date, None);
+    /// Command line options
+    #[derive(Debug, StructOpt)]
+    #[structopt(
+    name = "todors",
+    about = "View and edit a file in todo.txt format",
+    // Don't collapse all positionals into [ARGS]
+    raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage"),
+    // Don't print versions for each subcommand
+    raw(setting = "structopt::clap::AppSettings::VersionlessSubcommands")
+)]
+    pub struct Opt {
+        /// Hide context names in list output.
+        ///
+        /// Use twice to show context names (default).
+        #[structopt(short = "@", parse(from_occurrences))]
+        pub hide_context: u8,
+
+        /// Hide project names in list output.
+        ///
+        /// Use twice to show project names (default).
+        #[structopt(short = "+", parse(from_occurrences))]
+        pub hide_project: u8,
+
+        /// Hide priority labels in list output.
+        ///
+        /// Use twice to show priority labels (default).
+        #[structopt(short = "P", parse(from_occurrences))]
+        pub hide_priority: u8,
+
+        /// Plain mode turns off colors
+        #[structopt(short = "p")]
+        pub plain: bool,
+
+        /// Increase log verbosity (can be passed multiple times)
+        ///
+        /// The default verbosity is ERROR. With this flag, it is set to:{n}
+        /// -v = WARN, -vv = INFO, -vvv = DEBUG, -vvvv = TRACE
+        #[structopt(short = "v", parse(from_occurrences))]
+        pub verbosity: u8,
+
+        /// Quiet debug messages
+        #[structopt(short = "q")]
+        pub quiet: bool,
+
+        /// Use a config file other than the default ~/.todo/config
+        #[structopt(
+            short = "d",
+            name = "CONFIG_FILE",
+            env = "TODOTXT_CFG_FILE",
+            hide_env_values = true
+        )]
+        pub config_file: Option<String>,
+
+        /// List contents of todo.txt file
+        #[structopt(subcommand)]
+        pub cmd: Option<Command>,
     }
 
-    #[test]
-    fn compare_output() {
-        use termcolor::{BufferWriter, ColorChoice};
-        let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-        let mut buf = bufwtr.buffer();
-        run(&["todors".to_string(), "list".to_string()], &mut buf).unwrap();
-        let todors = std::str::from_utf8(buf.as_slice()).unwrap();
-        let todo_sh_output = get_todo_sh_output(None, Some("sort")).unwrap();
-        let todo_sh = std::str::from_utf8(&todo_sh_output.stdout).unwrap();
-        assert_eq!(todo_sh, todors);
+    #[derive(StructOpt, Debug)]
+    pub enum Command {
+        /// Add line to todo.txt file
+        #[structopt(name = "add", visible_alias = "a")]
+        Add {
+            #[structopt(name = "TASK")]
+            /// Todo item
+            ///
+            /// "THING I NEED TO DO +project @context"
+            task: String,
+        },
+
+        /// Add multiple lines to todo.txt file
+        #[structopt(name = "addm")]
+        Addm {
+            /// Todo item(s)
+            ///
+            /// "FIRST THING I NEED TO DO +project1 @context{n}
+            /// SECOND THING I NEED TO DO +project2 @context"{n}{n}
+            /// Adds FIRST THING I NEED TO DO to your todo.txt on its own line and{n}
+            /// Adds SECOND THING I NEED TO DO to your todo.txt on its own line.{n}
+            /// Project and context notation optional.
+            #[structopt(name = "TASKS", value_delimiter = "\n")]
+            tasks: Vec<String>,
+        },
+
+        /// Add line of text to any file in the todo.txt directory
+        #[structopt(name = "addto")]
+        Addto,
+
+        /// Add text to end of the item
+        #[structopt(name = "append", visible_alias = "app")]
+        Append {
+            /// Append text to end of this line number
+            #[structopt(name = "ITEM")]
+            item: u32,
+
+            /// Text to append (quotes optional)
+            #[structopt(name = "TEXT")]
+            text: String,
+        },
+
+        /// Displays all tasks (optionally filtered by terms)
+        #[structopt(name = "list", visible_alias = "ls")]
+        List {
+            /// Term to search for
+            #[structopt(name = "TERM")]
+            terms: Vec<String>,
+        },
+
+        /// List all todos
+        #[structopt(name = "listall", visible_alias = "lsa")]
+        Listall {
+            /// Term to search for
+            #[structopt(name = "TERM")]
+            terms: Vec<String>,
+        },
+
+        /// List all tasks with priorities (optionally filtered)
+        #[structopt(name = "listpri", visible_alias = "lsp")]
+        Listpri {
+            /// Priorities to search for
+            #[structopt(name = "PRIORITY")]
+            priorities: Vec<String>,
+        },
+    }
+}
+
+// logger :: format output of env_logger {{{1
+pub mod logger {
+    use chrono::Local;
+    use env_logger::{fmt::Color, Env};
+    use log::{self, Level};
+    use std::io::Write;
+
+    // Colors
+    const DIM_CYAN: u8 = 37;
+    const DIM_GREEN: u8 = 34;
+    const DIM_YELLOW: u8 = 142;
+    const DIM_ORANGE: u8 = 130;
+    const DIM_MAGENTA: u8 = 127;
+
+    /// Initialize customized instance of env_logger
+    pub fn init_logger(verbose: u8) {
+        env_logger::Builder::from_env(Env::new().default_filter_or(match verbose {
+            0 => "warn",
+            1 => "info",
+            2 => "debug",
+            _ => "trace",
+        }))
+        .format(|buf, record| {
+            let mut level_style = buf.style();
+            match record.level() {
+                Level::Trace => level_style.set_color(Color::Ansi256(DIM_YELLOW)),
+                Level::Debug => level_style.set_color(Color::Ansi256(DIM_CYAN)),
+                Level::Info => level_style.set_color(Color::Ansi256(DIM_GREEN)),
+                Level::Warn => level_style.set_color(Color::Ansi256(DIM_ORANGE)),
+                Level::Error => level_style.set_color(Color::Ansi256(DIM_MAGENTA)),
+            };
+
+            let level = level_style.value(format!("{:5}", record.level()));
+            let tm_fmt = "%F %H:%M:%S%.3f";
+            let time = Local::now().format(tm_fmt);
+
+            let mut subtle_style = buf.style();
+            subtle_style.set_color(Color::Black).set_intense(true);
+
+            let mut gray_style = buf.style();
+            gray_style.set_color(Color::Ansi256(250));
+
+            writeln!(
+                buf,
+                "\
+                 {lbracket}\
+                 {time}\
+                 {rbracket}\
+                 {level}\
+                 {lbracket}\
+                 {file}\
+                 {colon}\
+                 {line_no}\
+                 {rbracket} \
+                 {record_args}\
+                 ",
+                lbracket = subtle_style.value("["),
+                rbracket = subtle_style.value("]"),
+                colon = subtle_style.value(":"),
+                file = gray_style.value(record.file().unwrap_or("<unnamed>")),
+                time = gray_style.value(time),
+                level = level,
+                line_no = gray_style.value(record.line().unwrap_or(0)),
+                record_args = &record.args(),
+            )
+        })
+        .init();
     }
 }
