@@ -11,7 +11,7 @@ use log::{debug, info, trace};
 use serde::Deserialize;
 use std::{cmp::Ordering, fs, io::Write, path::PathBuf};
 use structopt::StructOpt;
-use termcolor::{BufferWriter, Color, ColorChoice, ColorSpec, WriteColor};
+use termcolor::{Color, ColorSpec, WriteColor};
 
 #[derive(Debug)]
 /// Wrapper that holds all current settings
@@ -73,6 +73,7 @@ fn get_style(name: &str, ctx: &Context) -> Result<ColorSpec, Error> {
         .find(|i| i.name.to_ascii_lowercase() == name)
         .unwrap_or(&default_style);
     let mut color = ColorSpec::new();
+    color.set_no_reset(true);
     if let Some(fg) = style.color_fg {
         color.set_fg(Some(Color::Ansi256(fg)));
     }
@@ -92,7 +93,6 @@ fn format_buffer(
     ctx: &Context,
     total_task_ct: usize,
 ) -> Result<(), Error> {
-    // let mut color = ColorSpec::new();
     for task in tasks {
         let line = &task.raw;
         let mut pri_name = String::from("pri_");
@@ -106,8 +106,8 @@ fn format_buffer(
             &task.id,
             ct = total_task_ct.to_string().len()
         )?;
-        // TODO: figure out how to add the proper amount of whitespace back in
-        for word in line.split_whitespace() {
+        let mut words = line.split_whitespace().peekable();
+        while let Some(word) = words.next() {
             let first_char = word.chars().next();
             let prev_color = color.clone();
             match first_char {
@@ -116,7 +116,6 @@ fn format_buffer(
                         buf.set_color(&get_style("project", ctx)?)?;
                         write!(buf, "{}", word)?;
                         buf.reset()?;
-                        write!(buf, " ")?;
                         buf.set_color(&prev_color)?;
                     }
                 }
@@ -125,18 +124,20 @@ fn format_buffer(
                         buf.set_color(&get_style("context", ctx)?)?;
                         write!(buf, "{}", word)?;
                         buf.reset()?;
-                        write!(buf, " ")?;
                         buf.set_color(&prev_color)?;
                     }
                 }
                 _ => {
-                    write!(buf, "{} ", word)?;
+                    write!(buf, "{}", word)?;
                 }
             }
+            if words.peek().is_some() {
+                write!(buf, " ")?;
+            }
         }
-        // if task.parsed.priority < 26 {
-        buf.reset()?;
-        // }
+        if task.parsed.priority < 26 {
+            buf.reset()?;
+        }
         writeln!(buf)?;
     }
     Ok(())
@@ -383,7 +384,7 @@ fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result<
 }
 
 /// Entry point for main program logic
-pub fn run(args: &[String]) -> Result<(), Error> {
+pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result<(), Error> {
     let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
@@ -403,15 +404,12 @@ pub fn run(args: &[String]) -> Result<(), Error> {
     };
     debug!("{:#?}", ctx);
 
-    // create color buffer and writer
-    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    let mut buf = bufwtr.buffer();
     match &ctx.opts.cmd {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
             Command::List { terms } => {
-                list(terms, &mut buf, &ctx)?;
+                list(terms, buf, &ctx)?;
             }
             Command::Listall { terms } => info!("Listing all {:?}", terms),
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
@@ -420,7 +418,7 @@ pub fn run(args: &[String]) -> Result<(), Error> {
         },
         None => {
             info!("No command supplied; defaulting to List");
-            list(&[], &mut buf, &ctx)?;
+            list(&[], buf, &ctx)?;
         }
     }
     // Load shell config file {{{
@@ -443,21 +441,18 @@ pub fn run(args: &[String]) -> Result<(), Error> {
             "Buffer contents:\n{:?}",
             std::str::from_utf8(buf.as_slice())?
         );
-        // print buffer
-        bufwtr.print(&buf)?;
     }
     Ok(())
 }
 
-// Tests
-#[cfg(test)]
+#[cfg(test)] //{{{
 mod test {
-    //{{{
-    use std::str::FromStr;
+    use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn str_to_task() {
-        //{{{
+        use std::str::FromStr;
         let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31";
         let task = todo_txt::Task::from_str(line).expect("error parsing task");
         assert_eq!(task.subject, "Get new +pricing for +item @work");
@@ -467,5 +462,17 @@ mod test {
         assert_eq!(task.finish_date, None);
         assert_eq!(task.due_date, Some(todo_txt::Date::from_ymd(2019, 12, 31)));
         assert_eq!(task.threshold_date, None);
+    }
+
+    #[test]
+    fn compare_output() {
+        use termcolor::{BufferWriter, ColorChoice};
+        let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+        let mut buf = bufwtr.buffer();
+        run(&["todors".to_string(), "list".to_string()], &mut buf).unwrap();
+        let todors = std::str::from_utf8(buf.as_slice()).unwrap();
+        let todo_sh_output = get_todo_sh_output(None, Some("sort")).unwrap();
+        let todo_sh = std::str::from_utf8(&todo_sh_output.stdout).unwrap();
+        assert_eq!(todo_sh, todors);
     }
 }

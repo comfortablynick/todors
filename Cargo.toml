@@ -1,6 +1,6 @@
 [package]
 name = "todors"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Nick Murphy <comfortablynick@gmail.com>"]
 edition = "2018"
 publish = false
@@ -12,9 +12,15 @@ chrono = "0.4"
 dirs = "2.0"
 regex = "1"
 lazy_static = "1.3.0"
-termcolor = {version = "1", git = "https://github.com/comfortablynick/termcolor.git"}
+termcolor = "1"
 todo-txt = "^1.0"
 toml = "0.5"
-serde = {version = "1.0", features = ["derive"]}
+serde = { version = "1.0", features = ["derive"] }
 failure = "0.1.5"
-structopt = {version = "0.2", features = ["wrap_help"]}
+structopt = { version = "0.2", features = ["wrap_help"] }
+
+[dev-dependencies]
+pretty_assertions = "0.6"
+
+[patch.crates-io]
+termcolor = { git = "https://github.com/comfortablynick/termcolor.git", branch = "no-reset" }
