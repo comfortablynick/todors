@@ -454,7 +454,7 @@ dependencies = [
 [[package]]
 name = "termcolor"
 version = "1.0.5"
-source = "git+https://github.com/comfortablynick/termcolor.git#6b2a704be6cc19127e41f954890a2eb06e67e7bd"
+source = "git+https://github.com/comfortablynick/termcolor.git#6284c2e4100ce1999800d2eab39c964e1efc081c"
 dependencies = [
  "wincolor 1.0.1 (git+https://github.com/comfortablynick/termcolor.git)",
 ]
@@ -616,7 +616,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "wincolor"
 version = "1.0.1"
-source = "git+https://github.com/comfortablynick/termcolor.git#6b2a704be6cc19127e41f954890a2eb06e67e7bd"
+source = "git+https://github.com/comfortablynick/termcolor.git#6284c2e4100ce1999800d2eab39c964e1efc081c"
 dependencies = [
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi-util 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
