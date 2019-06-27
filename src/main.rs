@@ -1,8 +1,6 @@
-// #[macro_use]
-// extern crate lazy_static;
-mod args;
-mod cli;
-mod util;
+#[macro_use]
+extern crate lazy_static;
+use termcolor::{BufferWriter, ColorChoice};
 
 fn main() -> Result<(), failure::Error> {
     // TODO: remove this after testing and simply pass cli args
@@ -14,5 +12,10 @@ fn main() -> Result<(), failure::Error> {
     // turn on ANSI escape support on Windows to use color
     #[cfg(windows)]
     ansi_term::enable_ansi_support().expect("Enable ANSI support on Windows");
-    cli::run(&args)
+
+    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+    let mut buf = bufwtr.buffer();
+
+    todors::run(&args, &mut buf)?;
+    bufwtr.print(&buf).map_err(failure::Error::from)
 }
