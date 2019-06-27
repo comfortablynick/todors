@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate lazy_static;
 use termcolor::{BufferWriter, ColorChoice};
 
 fn main() -> Result<(), failure::Error> {
