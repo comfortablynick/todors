@@ -160,47 +160,6 @@ fn get_todo_file_path() -> Result<PathBuf, Error> {
     Ok(path)
 }
 
-// todo.cfg {{{
-#[allow(dead_code)]
-/// Source todo.cfg using bash
-fn source_cfg_file(cfg_file_path: &str) -> Result<String, Error> {
-    let child = std::process::Command::new("/bin/bash")
-        .arg("-c")
-        .arg(format!("source {}; env", cfg_file_path))
-        .output()?;
-    String::from_utf8(child.stdout).map_err(Error::from)
-}
-
-/// Hold key value pairs for env vars
-#[allow(dead_code)]
-#[derive(Debug)]
-struct EnvVar<'a> {
-    name: &'a str,
-    value: &'a str,
-}
-
-#[allow(dead_code)]
-/// Process strings into EnvVars
-fn process_cfg(cfg_item: &str) -> Result<EnvVar, Error> {
-    let mut split = cfg_item.split('=').map(str::trim);
-    split
-        .next()
-        .and_then(|name| {
-            split
-                .next()
-                .and_then(|v| {
-                    if split.next().is_some() {
-                        None
-                    } else {
-                        Some(v)
-                    }
-                })
-                .map(|value| EnvVar { name, value })
-        })
-        .ok_or_else(|| err_msg("unable to parse cfg item"))
-} //}}}
-  // todo.toml {{{
-
 #[derive(Debug, Deserialize)]
 /// Color settings for terminal output
 struct Style {
@@ -277,7 +236,6 @@ fn read_config(file_path: &PathBuf) -> Result<Config, Error> {
     let cfg: Result<Config, Error> = toml::from_str(&config_toml).map_err(Error::from);
     cfg
 }
-//}}}
 
 /// Filter tasks list against terms
 fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result<(), Error> {
@@ -306,25 +264,6 @@ fn addm(tasks: &[String]) -> Result<(), Error> {
     }
     Ok(())
 }
-
-// Use todo_txt crate ordering (same as raw cmp?) {{{
-// impl Ord for Task {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         if self.parsed.due_date != other.parsed.due_date {
-//             return self.parsed.due_date.cmp(&other.parsed.due_date);
-//         }
-//
-//         if self.parsed.priority != other.parsed.priority {
-//             return self.parsed.priority.cmp(&other.parsed.priority).reverse();
-//         }
-//
-//         if self.parsed.subject != other.parsed.subject {
-//             return self.parsed.subject.cmp(&other.parsed.subject);
-//         }
-//         Ordering::Equal
-//     }
-// }
-//}}}
 
 /// Load todo.txt file and parse into Task objects
 fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>, Error> {
@@ -413,17 +352,6 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result<(), Error> {
             list(&[], buf, &ctx)?;
         }
     }
-    // Load shell config file {{{
-    // if let Some(ref cfg_file) = opts.config_file {
-    //     info!("Found cfg file path: {:?}", cfg_file);
-    //     if let Ok(env) = source_cfg_file(cfg_file) {
-    //         let lines = env.split_whitespace();
-    //         for line in lines {
-    //             debug!("{:?}", process_cfg(line)?);
-    //         }
-    //     };
-    // };
-    // }}}
     trace!(
         "todo.sh output:\n{:?}",
         std::str::from_utf8(&get_todo_sh_output(None, Some("sort"))?.stdout)?

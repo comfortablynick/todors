@@ -1,8 +1,5 @@
-// #[macro_use]
-// extern crate lazy_static;
-// mod args;
-// mod cli;
-// mod util;
+#[macro_use]
+extern crate lazy_static;
 use termcolor::{BufferWriter, ColorChoice};
 
 fn main() -> Result<(), failure::Error> {
