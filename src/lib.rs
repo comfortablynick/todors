@@ -58,7 +58,8 @@ impl Ansi {
 }
 
 /// Get item style from preferences (or default)
-fn get_style(name: &str, ctx: &Context) -> Result<ColorSpec, Error> {
+fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec, Error> {
+    debug!("Getting style for '{}'", name);
     let default_style = Style::default(&name);
     let style = ctx
         .styles
@@ -79,6 +80,14 @@ fn get_style(name: &str, ctx: &Context) -> Result<ColorSpec, Error> {
     Ok(color)
 }
 
+/// Get string priority name in the form of `pri_x`
+fn get_pri_name(pri: u8) -> Option<String> {
+    match pri {
+        0...25 => Some(format!("pri_{}", (pri + 97) as char)),
+        _ => None,
+    }
+}
+
 /// Use regex to add color to priorities, projects and contexts
 fn format_buffer(
     tasks: &[Task],
@@ -88,9 +97,8 @@ fn format_buffer(
 ) -> Result<(), Error> {
     for task in tasks {
         let line = &task.raw;
-        let mut pri_name = String::from("pri_");
-        pri_name.push((task.parsed.priority + 97) as char); // -> 0 == 'a'
-        let color = get_style(&pri_name, ctx)?;
+        let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
+        let color = get_colors_from_style(&pri, ctx)?;
         buf.set_color(&color)?;
         // write line number (id)
         write!(
@@ -106,7 +114,7 @@ fn format_buffer(
             match first_char {
                 Some('+') => {
                     if ctx.opts.hide_project % 2 == 0 {
-                        buf.set_color(&get_style("project", ctx)?)?;
+                        buf.set_color(&get_colors_from_style("project", ctx)?)?;
                         write!(buf, "{}", word)?;
                         buf.reset()?;
                         buf.set_color(&prev_color)?;
@@ -114,7 +122,7 @@ fn format_buffer(
                 }
                 Some('@') => {
                     if ctx.opts.hide_context % 2 == 0 {
-                        buf.set_color(&get_style("context", ctx)?)?;
+                        buf.set_color(&get_colors_from_style("context", ctx)?)?;
                         write!(buf, "{}", word)?;
                         buf.reset()?;
                         buf.set_color(&prev_color)?;
@@ -181,17 +189,23 @@ impl Style {
             intense: None,
             underline: None,
         };
-        match name {
-            "project" => default.color_fg = Some(Ansi::LIME),
-            "context" => default.color_fg = Some(Ansi::LIGHTORANGE),
-            "pri_a" => default.color_fg = Some(Ansi::HOTPINK),
-            "pri_b" => default.color_fg = Some(Ansi::GREEN),
-            "pri_c" => default.color_fg = Some(Ansi::BLUE),
-            "pri_d" => default.color_fg = Some(Ansi::TURQUOISE),
-            "pri_x" => default.color_fg = Some(Ansi::TAN),
-            _ => default.color_fg = None,
+        if name.starts_with("pri") {
+            match name {
+                "pri_a" => default.color_fg = Some(Ansi::HOTPINK),
+                "pri_b" => default.color_fg = Some(Ansi::GREEN),
+                "pri_c" => default.color_fg = Some(Ansi::BLUE),
+                "pri_d" => default.color_fg = Some(Ansi::TURQUOISE),
+                _ => default.color_fg = Some(Ansi::TAN),
+            }
+            default
+        } else {
+            match name {
+                "project" => default.color_fg = Some(Ansi::LIME),
+                "context" => default.color_fg = Some(Ansi::LIGHTORANGE),
+                _ => default.color_fg = None,
+            }
+            default
         }
-        default
     }
 }
 
