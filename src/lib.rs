@@ -1,8 +1,14 @@
 use args::Command;
-use failure::{err_msg, Error};
+use errors::{Error, Result};
+use failure::err_msg;
 use log::{debug, info, trace};
 use serde::Deserialize;
-use std::{cmp::Ordering, fs, io::Write, path::PathBuf};
+use std::{
+    cmp::Ordering,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+};
 use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, WriteColor};
 
@@ -58,8 +64,9 @@ impl Ansi {
 }
 
 /// Get item style from preferences (or default)
-fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec, Error> {
-    debug!("Getting style for '{}'", name);
+fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
+    // TODO: build ColorSpecs for each style in the configuration and iterate once
+    trace!("Getting style for '{}'", name);
     let default_style = Style::default(&name);
     let style = ctx
         .styles
@@ -83,18 +90,22 @@ fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec, Error> 
 /// Get string priority name in the form of `pri_x`
 fn get_pri_name(pri: u8) -> Option<String> {
     match pri {
-        0...25 => Some(format!("pri_{}", (pri + 97) as char)),
+        0...25 => {
+            let mut s = String::from("pri_");
+            s.push((pri + 97).into());
+            Some(s)
+        }
         _ => None,
     }
 }
 
-/// Use regex to add color to priorities, projects and contexts
+/// Format output and add color to priorities, projects and contexts
 fn format_buffer(
     tasks: &[Task],
     buf: &mut termcolor::Buffer,
     ctx: &Context,
     total_task_ct: usize,
-) -> Result<(), Error> {
+) -> Result {
     for task in tasks {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
@@ -148,7 +159,7 @@ fn format_buffer(
 pub fn get_todo_sh_output(
     argv: Option<&[&str]>,
     sort_cmd: Option<&str>,
-) -> Result<std::process::Output, Error> {
+) -> Result<std::process::Output> {
     let sort_cmd = sort_cmd.unwrap_or("sort -f -k 2");
     debug!("TODOTXT_SORT_COMMAND={}", sort_cmd);
     std::process::Command::new("todo.sh")
@@ -159,9 +170,8 @@ pub fn get_todo_sh_output(
 }
 
 /// Gets path based on default location
-fn get_todo_file_path() -> Result<PathBuf, Error> {
-    let mut path = PathBuf::new();
-    path.push(dirs::home_dir().ok_or_else(|| err_msg("cannot find home dir"))?);
+fn get_todo_file_path() -> Result<PathBuf> {
+    let mut path = dirs::home_dir().ok_or_else(|| err_msg("cannot find home dir"))?;
     path.push("Dropbox");
     path.push("todo");
     path.push("todo.txt");
@@ -224,35 +234,30 @@ struct Config {
 }
 
 /// Gets toml config file path based on default location
-fn get_def_cfg_file_path() -> Result<PathBuf, Error> {
-    let mut path = PathBuf::new();
-    if let Some(home) = dirs::home_dir() {
-        path.push(home);
-    } else {
-        path.push("~");
-    }
-    // path.push("Dropbox");
-    // path.push("todo");
+fn get_def_cfg_file_path() -> Result<PathBuf> {
+    let mut path = dirs::home_dir().ok_or_else(|| err_msg("cannot find home dir"))?;
     path.push("git");
     path.push("todors");
     path.push("todo.toml");
     Ok(path)
 }
 
-#[allow(dead_code)]
 /// Read and process cfg from toml into Config object
-fn read_config(file_path: &PathBuf) -> Result<Config, Error> {
+fn read_config<P>(file_path: P) -> Result<Config>
+where
+    P: AsRef<Path>,
+    P: std::fmt::Debug,
+{
     use std::io::prelude::*;
     let mut config_toml = String::new();
-    let mut file = std::fs::File::open(file_path)?;
+    let mut file = std::fs::File::open(&file_path)?;
     info!("Found config file at {:?}", file_path);
     file.read_to_string(&mut config_toml)?;
-    let cfg: Result<Config, Error> = toml::from_str(&config_toml).map_err(Error::from);
-    cfg
+    toml::from_str(&config_toml).map_err(Error::from)
 }
 
 /// Filter tasks list against terms
-fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result<(), Error> {
+fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result {
     tasks.retain(|t| {
         for term in terms.iter() {
             if !t.raw.contains(term) {
@@ -265,13 +270,13 @@ fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result<(), Error> {
 }
 
 /// Add task to todo.txt file
-fn add(task: &str) -> Result<(), Error> {
+fn add(task: &str) -> Result<()> {
     info!("Adding {:?}", task);
     Ok(())
 }
 
 /// Add multiple tasks to todo.txt file
-fn addm(tasks: &[String]) -> Result<(), Error> {
+fn addm(tasks: &[String]) -> Result<()> {
     info!("Adding multiple: {:?}", tasks);
     for task in tasks.iter() {
         add(task)?;
@@ -280,7 +285,7 @@ fn addm(tasks: &[String]) -> Result<(), Error> {
 }
 
 /// Load todo.txt file and parse into Task objects
-fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>, Error> {
+fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>> {
     let todo_file = fs::read_to_string(todo_file)?;
     let mut task_ct = 0;
     Ok(todo_file
@@ -299,7 +304,7 @@ fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>, Error> {
 }
 
 /// List tasks from todo.txt file
-fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result<(), Error> {
+fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result<()> {
     // Open todo.txt file
     let todo_file = get_todo_file_path()?;
     let mut tasks = get_tasks(todo_file)?;
@@ -329,7 +334,7 @@ fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result<
 }
 
 /// Entry point for main program logic
-pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result<(), Error> {
+pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result<()> {
     let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
@@ -339,9 +344,11 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result<(), Error> {
         std::env::set_var("TERM", "dumb");
     }
     info!("Running with args: {:?}", args);
-    // TODO: make this an option in case no config exists
-    let toml_file_path = get_def_cfg_file_path()?;
-    let cfg: Config = read_config(&toml_file_path)?;
+    let cfg = read_config(
+        opts.config_file
+            .clone()
+            .unwrap_or_else(|| get_def_cfg_file_path().expect("could not find config file")),
+    )?;
     let ctx = Context {
         opts,
         settings: cfg.general,
@@ -428,14 +435,14 @@ pub mod args {
         #[structopt(short = "q")]
         pub quiet: bool,
 
-        /// Use a config file other than the default ~/.todo/config
+        /// Use a config file to set preferences
         #[structopt(
             short = "d",
             name = "CONFIG_FILE",
-            env = "TODOTXT_CFG_FILE",
+            env = "TODORS_CFG_FILE",
             hide_env_values = true
         )]
-        pub config_file: Option<String>,
+        pub config_file: Option<std::path::PathBuf>,
 
         /// List contents of todo.txt file
         #[structopt(subcommand)]
@@ -508,7 +515,7 @@ pub mod args {
             priorities: Vec<String>,
         },
     }
-}
+} /* args */
 
 // logger :: format output of env_logger {{{1
 pub mod logger {
@@ -578,4 +585,24 @@ pub mod logger {
         })
         .init();
     }
-}
+} /* logger */
+
+// errors :: custom error definitions {{{1
+mod errors {
+    pub use failure::Error;
+    use std::result::Result as StdResult;
+
+    pub type Result<T = ()> = StdResult<T, Error>;
+
+    // #[derive(Debug, Fail)]
+    // pub enum Error {
+    //     #[fail(display = "parse error")]
+    //     ParseError,
+    //     #[fail(display = "error executing command")]
+    //     CommandError(#[cause] std::io::Error),
+    // }
+    //
+    // impl From<std::io::Error> for Error {
+    //
+    // }
+} /* errors */
