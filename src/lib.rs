@@ -1,6 +1,6 @@
 use args::Command;
 use errors::{Error, Result};
-use failure::err_msg;
+use failure::{err_msg, ResultExt};
 use log::{debug, info, trace};
 use serde::Deserialize;
 use std::{
@@ -166,12 +166,14 @@ pub fn get_todo_sh_output(
         .args(argv.unwrap_or_default())
         .env("TODOTXT_SORT_COMMAND", sort_cmd)
         .output()
+        .context("get_todo_sh_output(): error getting command output")
         .map_err(Error::from)
 }
 
 /// Gets path based on default location
 fn get_todo_file_path() -> Result<PathBuf> {
-    let mut path = dirs::home_dir().ok_or_else(|| err_msg("cannot find home dir"))?;
+    let mut path =
+        dirs::home_dir().ok_or_else(|| err_msg("get_todo_file_path(): cannot find home dir"))?;
     path.push("Dropbox");
     path.push("todo");
     path.push("todo.txt");
@@ -233,11 +235,10 @@ struct Config {
     styles: Vec<Style>,
 }
 
-/// Gets toml config file path based on default location
+/// Gets toml config file in same directory as src
 fn get_def_cfg_file_path() -> Result<PathBuf> {
-    let mut path = dirs::home_dir().ok_or_else(|| err_msg("cannot find home dir"))?;
-    path.push("git");
-    path.push("todors");
+    let mut path =
+        std::env::current_dir().context("get_def_cfg_file_path(): error getting current dir")?;
     path.push("todo.toml");
     Ok(path)
 }
@@ -250,10 +251,14 @@ where
 {
     use std::io::prelude::*;
     let mut config_toml = String::new();
-    let mut file = std::fs::File::open(&file_path)?;
+    let mut file = std::fs::File::open(&file_path)
+        .context(format!("could not open file {:?}", file_path))
+        .map_err(Error::from)?;
     info!("Found config file at {:?}", file_path);
     file.read_to_string(&mut config_toml)?;
-    toml::from_str(&config_toml).map_err(Error::from)
+    toml::from_str(&config_toml)
+        .context("could not convert toml config data")
+        .map_err(Error::from)
 }
 
 /// Filter tasks list against terms
@@ -270,13 +275,13 @@ fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result {
 }
 
 /// Add task to todo.txt file
-fn add(task: &str) -> Result<()> {
+fn add(task: &str) -> Result {
     info!("Adding {:?}", task);
     Ok(())
 }
 
 /// Add multiple tasks to todo.txt file
-fn addm(tasks: &[String]) -> Result<()> {
+fn addm(tasks: &[String]) -> Result {
     info!("Adding multiple: {:?}", tasks);
     for task in tasks.iter() {
         add(task)?;
@@ -304,7 +309,7 @@ fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>> {
 }
 
 /// List tasks from todo.txt file
-fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result<()> {
+fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
     // Open todo.txt file
     let todo_file = get_todo_file_path()?;
     let mut tasks = get_tasks(todo_file)?;
@@ -334,7 +339,7 @@ fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result<
 }
 
 /// Entry point for main program logic
-pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result<()> {
+pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
     let opts = args::Opt::from_iter(args);
 
     if !opts.quiet {
@@ -524,13 +529,6 @@ pub mod logger {
     use log::{self, Level};
     use std::io::Write;
 
-    // Colors
-    const DIM_CYAN: u8 = 37;
-    const DIM_GREEN: u8 = 34;
-    const DIM_YELLOW: u8 = 142;
-    const DIM_ORANGE: u8 = 130;
-    const DIM_MAGENTA: u8 = 127;
-
     /// Initialize customized instance of env_logger
     pub fn init_logger(verbose: u8) {
         env_logger::Builder::from_env(Env::new().default_filter_or(match verbose {
@@ -542,11 +540,11 @@ pub mod logger {
         .format(|buf, record| {
             let mut level_style = buf.style();
             match record.level() {
-                Level::Trace => level_style.set_color(Color::Ansi256(DIM_YELLOW)),
-                Level::Debug => level_style.set_color(Color::Ansi256(DIM_CYAN)),
-                Level::Info => level_style.set_color(Color::Ansi256(DIM_GREEN)),
-                Level::Warn => level_style.set_color(Color::Ansi256(DIM_ORANGE)),
-                Level::Error => level_style.set_color(Color::Ansi256(DIM_MAGENTA)),
+                Level::Trace => level_style.set_color(Color::Ansi256(142)), // dim yellow
+                Level::Debug => level_style.set_color(Color::Ansi256(37)),  // dim cyan
+                Level::Info => level_style.set_color(Color::Ansi256(34)),   // dim green
+                Level::Warn => level_style.set_color(Color::Ansi256(130)),  // dim orange
+                Level::Error => level_style.set_color(Color::Red).set_bold(true),
             };
 
             let level = level_style.value(format!("{:5}", record.level()));
