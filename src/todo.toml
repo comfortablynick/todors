@@ -1,15 +1,14 @@
 # Translation of todo.cfg in a more usable format
-
 [general]
+# File locations
+todo_file = '$HOME/git/todors/src/todo.txt'
+done_file = '$HOME/git/todors/src/done.txt'
+
 default_action = 'ls'
 date_on_add = true
 
-# [colors]
-# done = 198
-# project = 154
-# context = 215
-
 # Styles
+#
 # Fields available based on rust `termcolor` crate
 # Ex:
 # ```

@@ -5,20 +5,12 @@ use log::{debug, info, trace};
 use serde::Deserialize;
 use std::{
     cmp::Ordering,
-    fs,
+    fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
 };
 use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, WriteColor};
-
-#[derive(Debug)]
-/// Wrapper that holds all current settings
-struct Context {
-    opts: args::Opt,
-    settings: Settings,
-    styles: Vec<Style>,
-}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 /// Contains parsed task data and original raw string
@@ -66,7 +58,6 @@ impl Ansi {
 /// Get item style from preferences (or default)
 fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
     // TODO: build ColorSpecs for each style in the configuration and iterate once
-    trace!("Getting style for '{}'", name);
     let default_style = Style::default(&name);
     let style = ctx
         .styles
@@ -221,14 +212,24 @@ impl Style {
     }
 }
 
+#[derive(Debug)]
+/// Wrapper that holds all current settings, args, etc.
+struct Context {
+    opts: args::Opt,
+    settings: Settings,
+    styles: Vec<Style>,
+}
+
 /// General app settings
 #[derive(Debug, Deserialize)]
 struct Settings {
+    todo_file: Option<String>,
+    done_file: Option<String>,
     date_on_add: Option<bool>,
     default_action: Option<String>,
 }
 
-/// All configuration settings
+/// All configuration settings from toml
 #[derive(Debug, Deserialize)]
 struct Config {
     general: Settings,
@@ -277,6 +278,10 @@ fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result {
 /// Add task to todo.txt file
 fn add(task: &str) -> Result {
     info!("Adding {:?}", task);
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(get_todo_file_path()?)?;
+    writeln!(file, "{}", task)?;
     Ok(())
 }
 
@@ -286,6 +291,12 @@ fn addm(tasks: &[String]) -> Result {
     for task in tasks.iter() {
         add(task)?;
     }
+    Ok(())
+}
+
+fn delete(item: u32, term: &Option<String>) -> Result {
+    let _ = item;
+    let _ = term;
     Ok(())
 }
 
@@ -308,13 +319,73 @@ fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>> {
         .collect())
 }
 
+// Fields of `Task` we can sort by
+#[derive(Debug)]
+pub enum TaskField {
+    Body,
+    CompleteDate,
+    Completed,
+    Context,
+    CreateDate,
+    DueDate,
+    Id,
+    Priority,
+    Project,
+    Raw,
+    ThresholdDate,
+}
+
+#[derive(Debug)]
+pub struct TaskSort {
+    field: TaskField,
+    reverse: bool,
+}
+
+/// Sort task list by slice of TaskSort objects
+fn sort_tasks(tasks: &mut [Task], sorts: &[TaskSort]) {
+    tasks.sort_by(|a, b| {
+        let mut cmp = Ordering::Equal;
+        for sort in sorts {
+            if cmp != Ordering::Equal {
+                break;
+            }
+            cmp = match sort.field {
+                TaskField::CompleteDate => a.parsed.finish_date.cmp(&b.parsed.finish_date),
+                TaskField::Completed => a.parsed.finished.cmp(&b.parsed.finished),
+                TaskField::Context => a.parsed.contexts.get(0).cmp(&b.parsed.contexts.get(0)),
+                TaskField::CreateDate => a.parsed.create_date.cmp(&b.parsed.create_date),
+                TaskField::DueDate => a.parsed.due_date.cmp(&b.parsed.due_date),
+                TaskField::Id => a.id.cmp(&b.id),
+                TaskField::Priority => a.parsed.priority.cmp(&b.parsed.priority),
+                TaskField::Project => a.parsed.projects.get(0).cmp(&b.parsed.projects.get(0)),
+                TaskField::Body => a.parsed.subject.cmp(&b.parsed.subject),
+                TaskField::Raw => a.raw.cmp(&b.raw),
+                TaskField::ThresholdDate => a.parsed.threshold_date.cmp(&b.parsed.threshold_date),
+            };
+            cmp = if sort.reverse { cmp.reverse() } else { cmp };
+        }
+        cmp
+    })
+}
+
 /// List tasks from todo.txt file
 fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
     // Open todo.txt file
     let todo_file = get_todo_file_path()?;
     let mut tasks = get_tasks(todo_file)?;
-    // tasks.sort();
-    tasks.sort_by(|a, b| Ord::cmp(&a.id, &b.id));
+    sort_tasks(
+        &mut tasks,
+        &[
+            TaskSort {
+                field: TaskField::Priority,
+                reverse: false,
+            },
+            TaskSort {
+                field: TaskField::CreateDate,
+                reverse: true,
+            },
+        ],
+    );
     let task_ct = tasks.len();
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
@@ -349,11 +420,12 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         std::env::set_var("TERM", "dumb");
     }
     info!("Running with args: {:?}", args);
-    let cfg = read_config(
-        opts.config_file
-            .clone()
-            .unwrap_or_else(|| get_def_cfg_file_path().expect("could not find config file")),
-    )?;
+    let cfg_file = opts
+        .config_file
+        .clone()
+        .or_else(|| get_def_cfg_file_path().ok())
+        .expect("could not find valid cfg file path");
+    let cfg = read_config(cfg_file)?;
     let ctx = Context {
         opts,
         settings: cfg.general,
@@ -365,6 +437,7 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
+            Command::Delete { item, term } => delete(*item, term)?,
             Command::List { terms } => {
                 list(terms, buf, &ctx)?;
             }
@@ -373,10 +446,16 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
             Command::Addto => info!("Adding to..."),
             Command::Append { item, text } => info!("Appending: {:?} to task {}", text, item),
         },
-        None => {
-            info!("No command supplied; defaulting to List");
-            list(&[], buf, &ctx)?;
-        }
+        None => match &ctx.settings.default_action {
+            Some(cmd) => match cmd.as_str() {
+                "ls" | "list" => list(&[], buf, &ctx)?,
+                _ => panic!("Unknown command: {:?}", cmd),
+            },
+            None => {
+                info!("No command supplied; defaulting to List");
+                list(&[], buf, &ctx)?;
+            }
+        },
     }
     trace!(
         "todo.sh output:\n{:?}",
@@ -445,7 +524,7 @@ pub mod args {
             short = "d",
             name = "CONFIG_FILE",
             env = "TODORS_CFG_FILE",
-            hide_env_values = true
+            hide_env_values = false
         )]
         pub config_file: Option<std::path::PathBuf>,
 
@@ -494,6 +573,20 @@ pub mod args {
             /// Text to append (quotes optional)
             #[structopt(name = "TEXT")]
             text: String,
+        },
+
+        /// Deletes the task on line ITEM of todo.txt
+        ///
+        /// If TERM specified, deletes only TERM from the task
+        #[structopt(name = "del", visible_alias = "rm")]
+        Delete {
+            /// Line number of task to delete
+            #[structopt(name = "ITEM")]
+            item: u32,
+
+            /// Optional term to remove from item
+            #[structopt(name = "TERM")]
+            term: Option<String>,
         },
 
         /// Displays all tasks (optionally filtered by terms)

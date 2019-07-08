@@ -2,6 +2,7 @@
 alias r := run
 alias i := install
 alias q := runq
+alias h := help
 
 test:
 	cargo test
@@ -26,6 +27,9 @@ run:
 # run with --quiet
 runq:
 	todors -q
+
+help:
+	todors -h
 
 # run with verbosity 2 (-vv)
 runv:
