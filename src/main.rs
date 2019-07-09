@@ -14,7 +14,7 @@ fn main() -> Result<(), ExitFailure> {
 
     if let Err(e) = todors::run(&args, &mut buf) {
         error!("{:?}", e); // log all errors here
-        Err(e)?
+        return Err(e.into());
     }
     bufwtr.print(&buf).map_err(failure::Error::from)?;
     Ok(())

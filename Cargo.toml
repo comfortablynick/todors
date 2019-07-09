@@ -2,6 +2,7 @@
 name = "todors"
 version = "0.0.2"
 authors = ["Nick Murphy <comfortablynick@gmail.com>"]
+description = "Command line interface using the todo.txt format"
 edition = "2018"
 publish = false
 

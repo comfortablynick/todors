@@ -1,3 +1,5 @@
+#![feature(drain_filter)]
+
 use args::Command;
 use errors::{Error, Result};
 use failure::{err_msg, ResultExt};
@@ -81,7 +83,7 @@ fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
 /// Get string priority name in the form of `pri_x`
 fn get_pri_name(pri: u8) -> Option<String> {
     match pri {
-        0...25 => {
+        0..=25 => {
             let mut s = String::from("pri_");
             s.push((pri + 97).into());
             Some(s)
@@ -294,10 +296,28 @@ fn addm(tasks: &[String]) -> Result {
     Ok(())
 }
 
-fn delete(item: u32, term: &Option<String>) -> Result {
-    let _ = item;
-    let _ = term;
-    Ok(())
+/// Delete task by line number, or delete word from task
+fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<bool> {
+    if let Some(t) = term {
+        info!("Removing {:?} from item# {}", t, item);
+    } else {
+        for i in 0..tasks.len() {
+            let t = &tasks[i];
+            if t.id == item {
+                info!("Removing item# {} '{}' at index {}", t.id, t.raw, i);
+                if util::ask_user_yes_no(&format!("Delete '{}'?  (y/n)\n", t.raw,))? {
+                    let msg = format!("{} {}\nTODO: {} deleted.", &t.id, &t.raw, &t.id);
+                    tasks.remove(i);
+                    println!("{}", msg);
+                    return Ok(true);
+                }
+                println!("TODO: No tasks were deleted.");
+                return Ok(true);
+            }
+        }
+    }
+    println!("TODO: No task {}.", item);
+    Ok(false)
 }
 
 /// Load todo.txt file and parse into Task objects
@@ -319,30 +339,43 @@ fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>> {
         .collect())
 }
 
-// Fields of `Task` we can sort by
-#[derive(Debug)]
-pub enum TaskField {
+/// Fields of `Task` we can sort by
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SortByField {
+    /// Parsed body of the task
     Body,
+    /// Complete date of completed task
     CompleteDate,
+    /// Whether task is completed or not
     Completed,
+    /// The first context
     Context,
+    /// Create date if present
     CreateDate,
+    /// Due date tag if present
     DueDate,
+    /// Line number
     Id,
+    /// Priority code (A-Z)
     Priority,
+    /// The first project
     Project,
+    /// The unparsed line from todo.txt file
     Raw,
+    /// Threshold date tag if present
     ThresholdDate,
 }
 
-#[derive(Debug)]
-pub struct TaskSort {
-    field: TaskField,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SortBy {
+    /// Sorting criterion
+    field: SortByField,
+    /// Whether to reverse the sort
     reverse: bool,
 }
 
 /// Sort task list by slice of TaskSort objects
-fn sort_tasks(tasks: &mut [Task], sorts: &[TaskSort]) {
+fn sort_tasks(tasks: &mut [Task], sorts: &[SortBy]) {
     tasks.sort_by(|a, b| {
         let mut cmp = Ordering::Equal;
         for sort in sorts {
@@ -350,17 +383,17 @@ fn sort_tasks(tasks: &mut [Task], sorts: &[TaskSort]) {
                 break;
             }
             cmp = match sort.field {
-                TaskField::CompleteDate => a.parsed.finish_date.cmp(&b.parsed.finish_date),
-                TaskField::Completed => a.parsed.finished.cmp(&b.parsed.finished),
-                TaskField::Context => a.parsed.contexts.get(0).cmp(&b.parsed.contexts.get(0)),
-                TaskField::CreateDate => a.parsed.create_date.cmp(&b.parsed.create_date),
-                TaskField::DueDate => a.parsed.due_date.cmp(&b.parsed.due_date),
-                TaskField::Id => a.id.cmp(&b.id),
-                TaskField::Priority => a.parsed.priority.cmp(&b.parsed.priority),
-                TaskField::Project => a.parsed.projects.get(0).cmp(&b.parsed.projects.get(0)),
-                TaskField::Body => a.parsed.subject.cmp(&b.parsed.subject),
-                TaskField::Raw => a.raw.cmp(&b.raw),
-                TaskField::ThresholdDate => a.parsed.threshold_date.cmp(&b.parsed.threshold_date),
+                SortByField::CompleteDate => a.parsed.finish_date.cmp(&b.parsed.finish_date),
+                SortByField::Completed => a.parsed.finished.cmp(&b.parsed.finished),
+                SortByField::Context => a.parsed.contexts.get(0).cmp(&b.parsed.contexts.get(0)),
+                SortByField::CreateDate => a.parsed.create_date.cmp(&b.parsed.create_date),
+                SortByField::DueDate => a.parsed.due_date.cmp(&b.parsed.due_date),
+                SortByField::Id => a.id.cmp(&b.id),
+                SortByField::Priority => a.parsed.priority.cmp(&b.parsed.priority),
+                SortByField::Project => a.parsed.projects.get(0).cmp(&b.parsed.projects.get(0)),
+                SortByField::Body => a.parsed.subject.cmp(&b.parsed.subject),
+                SortByField::Raw => a.raw.cmp(&b.raw),
+                SortByField::ThresholdDate => a.parsed.threshold_date.cmp(&b.parsed.threshold_date),
             };
             cmp = if sort.reverse { cmp.reverse() } else { cmp };
         }
@@ -369,19 +402,21 @@ fn sort_tasks(tasks: &mut [Task], sorts: &[TaskSort]) {
 }
 
 /// List tasks from todo.txt file
-fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
-    // Open todo.txt file
-    let todo_file = get_todo_file_path()?;
-    let mut tasks = get_tasks(todo_file)?;
+fn list(
+    tasks: &mut Vec<Task>,
+    terms: &[String],
+    buf: &mut termcolor::Buffer,
+    ctx: &Context,
+) -> Result {
     sort_tasks(
-        &mut tasks,
+        tasks,
         &[
-            TaskSort {
-                field: TaskField::Priority,
+            SortBy {
+                field: SortByField::Priority,
                 reverse: false,
             },
-            TaskSort {
-                field: TaskField::CreateDate,
+            SortBy {
+                field: SortByField::CreateDate,
                 reverse: true,
             },
         ],
@@ -389,7 +424,7 @@ fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &Context) -> Result 
     let task_ct = tasks.len();
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
-        apply_filter(&mut tasks, terms)?;
+        apply_filter(tasks, terms)?;
     } else {
         info!("Listing without filter");
     }
@@ -432,14 +467,21 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         styles: cfg.styles,
     };
     debug!("{:#?}", ctx);
+    let mut tasks = get_tasks(get_todo_file_path()?)?;
 
     match &ctx.opts.cmd {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
-            Command::Delete { item, term } => delete(*item, term)?,
+            Command::Delete { item, term } => {
+                if delete(&mut tasks, *item, term)? {
+                    // TODO: write tasks to file
+                    return Ok(());
+                }
+                std::process::exit(1)
+            }
             Command::List { terms } => {
-                list(terms, buf, &ctx)?;
+                list(&mut tasks, terms, buf, &ctx)?;
             }
             Command::Listall { terms } => info!("Listing all {:?}", terms),
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
@@ -448,12 +490,12 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         },
         None => match &ctx.settings.default_action {
             Some(cmd) => match cmd.as_str() {
-                "ls" | "list" => list(&[], buf, &ctx)?,
+                "ls" | "list" => list(&mut tasks, &[], buf, &ctx)?,
                 _ => panic!("Unknown command: {:?}", cmd),
             },
             None => {
                 info!("No command supplied; defaulting to List");
-                list(&[], buf, &ctx)?;
+                list(&mut tasks, &[], buf, &ctx)?;
             }
         },
     }
@@ -470,6 +512,27 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
     Ok(())
 }
 
+// util :: helper functions, etc {{{1
+pub mod util {
+    use crate::errors::Result;
+    use log::debug;
+    use std::io::{stdin, stdout, Write};
+
+    /// Get user response to question as 'y' or 'n'
+    pub fn ask_user_yes_no(prompt_ln: &str) -> Result<bool> {
+        let mut cin = String::new();
+        stdout().write_all(prompt_ln.as_bytes())?;
+        stdout().flush()?;
+        stdin().read_line(&mut cin)?;
+        if let Some(c) = cin.to_lowercase().chars().next() {
+            debug!("User input: '{}'", c);
+            if c == 'y' {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+} /* util */
 // args :: Build CLI Arguments {{{1
 pub mod args {
     /** Defines all arguments and commands */
@@ -478,8 +541,7 @@ pub mod args {
     /// Command line options
     #[derive(Debug, StructOpt)]
     #[structopt(
-    name = "todors",
-    about = "View and edit a file in todo.txt format",
+    about = "Command line interface for todo.txt files",
     // Don't collapse all positionals into [ARGS]
     raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage"),
     // Don't print versions for each subcommand
@@ -568,7 +630,7 @@ pub mod args {
         Append {
             /// Append text to end of this line number
             #[structopt(name = "ITEM")]
-            item: u32,
+            item: usize,
 
             /// Text to append (quotes optional)
             #[structopt(name = "TEXT")]
@@ -582,7 +644,7 @@ pub mod args {
         Delete {
             /// Line number of task to delete
             #[structopt(name = "ITEM")]
-            item: u32,
+            item: usize,
 
             /// Optional term to remove from item
             #[structopt(name = "TERM")]

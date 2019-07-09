@@ -18,7 +18,7 @@ fn str_to_task() {
 
 #[test]
 /// Use library functions to compare todors and todo.sh
-fn compare_lib_output() -> Result<(), Box<std::error::Error>> {
+fn compare_lib_output() -> Result<(), Box<dyn std::error::Error>> {
     // Get output from todors `run()`
     use termcolor::{BufferWriter, ColorChoice};
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
@@ -36,7 +36,7 @@ fn compare_lib_output() -> Result<(), Box<std::error::Error>> {
 
 #[test]
 /// Run both todors and todo.sh and compare output
-fn compare_bin_output() -> Result<(), Box<std::error::Error>> {
+fn compare_bin_output() -> Result<(), Box<dyn std::error::Error>> {
     use std::process::*;
     let todors = Command::new("todors").arg("ls").output()?;
 
