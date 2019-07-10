@@ -27,7 +27,9 @@ fn compare_lib_output() -> Result<(), Box<dyn std::error::Error>> {
     let todors = std::str::from_utf8(buf.as_slice())?;
 
     // Get output from todo.sh
-    let todo_sh_output = todors::get_todo_sh_output(None, Some("sort"))?;
+    let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
+    let todo_sh_output =
+        todors::get_todo_sh_output(Some(&["-d", cfg_file.as_ref()]), Some("sort"))?;
     let todo_sh = std::str::from_utf8(&todo_sh_output.stdout)?;
 
     assert_eq!(todo_sh, todors);
@@ -41,6 +43,8 @@ fn compare_bin_output() -> Result<(), Box<dyn std::error::Error>> {
     let todors = Command::new("todors").arg("ls").output()?;
 
     let todo_sh = Command::new("todo.sh")
+        .arg("-d")
+        .arg("../tests/todo.cfg")
         .arg("ls")
         .env("TODOTXT_SORT_COMMAND", "sort")
         .output()?;

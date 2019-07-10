@@ -1,5 +1,3 @@
-#![feature(drain_filter)]
-
 use args::Command;
 use errors::{Error, Result};
 use failure::{err_msg, ResultExt};
@@ -23,6 +21,13 @@ struct Task {
     parsed: todo_txt::Task,
     /// Original unmodified text
     raw: String,
+}
+
+impl Task {
+    /// Returns true if the task is a blank line
+    fn is_blank(&self) -> bool {
+        self.raw == ""
+    }
 }
 
 impl PartialOrd for Task {
@@ -227,6 +232,7 @@ struct Context {
 struct Settings {
     todo_file: Option<String>,
     done_file: Option<String>,
+    report_file: Option<String>,
     date_on_add: Option<bool>,
     default_action: Option<String>,
 }
@@ -321,8 +327,13 @@ fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<b
 }
 
 /// Load todo.txt file and parse into Task objects
-fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>> {
-    let todo_file = fs::read_to_string(todo_file)?;
+fn get_tasks<P>(todo_file_path: P) -> Result<Vec<Task>>
+where
+    P: AsRef<Path>,
+    P: std::fmt::Debug,
+{
+    let todo_file =
+        fs::read_to_string(&todo_file_path).context(format!("file: {:?}", todo_file_path))?;
     let mut task_ct = 0;
     Ok(todo_file
         .lines()
@@ -334,8 +345,6 @@ fn get_tasks(todo_file: PathBuf) -> Result<Vec<Task>> {
                 raw: l.to_string(),
             }
         })
-        // Remove empty lines
-        .filter(|l| l.raw != "")
         .collect())
 }
 
@@ -410,18 +419,18 @@ fn list(
 ) -> Result {
     sort_tasks(
         tasks,
-        &[
-            SortBy {
-                field: SortByField::Priority,
-                reverse: false,
-            },
-            SortBy {
-                field: SortByField::CreateDate,
-                reverse: true,
-            },
-        ],
+        &[SortBy {
+            field: SortByField::Id,
+            reverse: false,
+        }],
     );
-    let task_ct = tasks.len();
+    // use for formatting line# column
+    let total_task_ct = tasks.len();
+    // remove blank rows
+    tasks.retain(|t| !t.is_blank());
+    // use for 'n of m tasks shown' message (not including blanks)
+    let prefilter_len = tasks.len();
+    // filter based on terms
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
         apply_filter(tasks, terms)?;
@@ -432,14 +441,14 @@ fn list(
     trace!("Parsed tasks:\n{:#?}", tasks);
 
     // fill buffer with formatted (colored) output
-    format_buffer(&tasks, buf, &ctx, task_ct)?;
+    format_buffer(&tasks, buf, &ctx, total_task_ct)?;
 
     // write footer
     write!(
         buf,
         "--\nTODO: {} of {} tasks shown\n",
         tasks.len(),
-        task_ct
+        prefilter_len,
     )?;
     Ok(())
 }
@@ -467,7 +476,14 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         styles: cfg.styles,
     };
     debug!("{:#?}", ctx);
-    let mut tasks = get_tasks(get_todo_file_path()?)?;
+    let mut tasks = get_tasks(
+        ctx.settings
+            .todo_file
+            .as_ref()
+            .and_then(|s| shellexpand::env(s).ok())
+            .expect("error expanding env vars in todo.txt path")
+            .as_ref(),
+    )?;
 
     match &ctx.opts.cmd {
         Some(command) => match command {

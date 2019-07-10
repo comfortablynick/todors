@@ -1,0 +1,11 @@
+(A) Thank Mom for the meatballs @phone 
+(B) Schedule Goodwill pickup +GarageSale @phone
+Post signs around the neighborhood +GarageSale
+@GroceryStore Eskimo pies
+
+(D) 2019-01-01 Call home @phone
+2019-03-04 Pick up ice @errands due:2019-03-04
+Learn how to add 2+2 @someday t:2099-12-31
+
+x 2018-08-22 2018-08-20 Call doctor @phone +Health due:2018-08-22 t:2018-08-21
+

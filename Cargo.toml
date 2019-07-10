@@ -20,9 +20,11 @@ serde = { version = "1.0", features = ["derive"] }
 failure = "0.1.5"
 structopt = { version = "0.2", features = ["wrap_help"] }
 exitfailure = "0.5.1"
+shellexpand = "1.0.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6"
 
 [patch.crates-io]
 termcolor = { git = "https://github.com/comfortablynick/termcolor.git", branch = "no-reset" }
+shellexpand = { git = "https://github.com/NickHackman/shellexpand.git", branch = "fix-use-deprecated-std-env-home_dir" }

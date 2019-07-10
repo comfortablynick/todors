@@ -1,36 +1,52 @@
 #!/usr/bin/env just --justfile
 alias r := run
 alias i := install
-alias q := runq
 alias h := help
+alias t := todors
+alias q := runq
 
-test:
-	cargo test
-
+# build debug binary and copy to ~/bin
 build:
 	cargo build
 
-fix:
-	cargo fix
-
+# build release binary and copy to ~/bin
 build-release:
 	cargo build --release
 
-# install and run
+# build release binary and install to cargo bin dir
 install:
 	cargo install --path . -f
 	todors
 
+# build debug binary and run
 run:
+	cargo run
+
+# build release binary and run
+run-release:
 	cargo run --release
 
 # run with --quiet
 runq:
-	todors -q
+	./target/release/todors -q
 
 help:
-	todors -h
+	./target/release/todors -h
 
-# run with verbosity 2 (-vv)
+# run with verbosity (INFO)
 runv:
-	cargo run --release -- -vv
+	RUST_LOG=info cargo run
+
+# run with verbosity (DEBUG)
+runvv:
+	RUST_LOG=debug cargo run
+
+# run release binary
+todors args='':
+	./target/release/todors {{args}}
+
+test:
+	cargo test
+
+fix:
+	cargo fix

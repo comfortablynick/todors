@@ -1,8 +1,9 @@
 # Translation of todo.cfg in a more usable format
 [general]
 # File locations
-todo_file = '$HOME/git/todors/src/todo.txt'
-done_file = '$HOME/git/todors/src/done.txt'
+todo_file = '$HOME/git/todors/tests/todo.txt'
+done_file = '$HOME/git/todors/tests/done.txt'
+report_file = '$HOME/git/todors/tests/report.txt'
 
 default_action = 'ls'
 date_on_add = true

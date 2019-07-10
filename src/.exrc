@@ -8,7 +8,7 @@ let b:ft_cmds = {
         \ 'rust': {
         \   'build': ' just build',
         \   'build-release': ' just build-release',
-        \   'install': ' just install',
-        \   'run': ' just run',
+        \   'install': ' just run-release',
+        \   'run': ' just run-release',
         \  },
         \ }
