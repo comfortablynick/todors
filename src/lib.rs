@@ -1,7 +1,10 @@
+#[macro_use]
+extern crate lazy_static;
 use args::Command;
 use errors::{Error, Result};
 use failure::{err_msg, ResultExt};
 use log::{debug, info, trace};
+use regex::Regex;
 use serde::Deserialize;
 use std::{
     cmp::Ordering,
@@ -95,6 +98,38 @@ fn get_pri_name(pri: u8) -> Option<String> {
         }
         _ => None,
     }
+}
+
+#[allow(dead_code)]
+/// Format output using regex to identify priority, project, context
+fn format_regex(tasks: &[Task], ctx: &Context, total_task_ct: usize) -> Result {
+    use ansi_term::Color::Fixed;
+    use std::fmt::Write;
+    lazy_static! {
+        static ref RE_CONTEXT: Regex = Regex::new(r"@\w+").unwrap();
+        static ref RE_PROJECT: Regex = Regex::new(r"\+\w+").unwrap();
+        // static ref RE_PRIORITY: Regex = Regex::new(r"\([A-Z]\)").unwrap();
+    }
+    let mut buf = String::new();
+    for task in tasks {
+        let line = &task.raw;
+        let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
+        let _color = get_colors_from_style(&pri, ctx)?;
+        let fmt = format!(
+            "{:0ct$} {}",
+            &task.id,
+            line,
+            ct = total_task_ct.to_string().len()
+        );
+        writeln!(buf, "{}", Fixed(135).bold().paint(fmt))?;
+    }
+    let buf = RE_CONTEXT.replace_all(&buf, |caps: &regex::Captures| {
+        format!("{}", Fixed(215).paint(caps[0].to_owned()))
+    });
+    let stdout = std::io::stdout();
+    let mut lock = stdout.lock();
+    lock.write_all(buf.as_bytes())?;
+    Ok(())
 }
 
 /// Format output and add color to priorities, projects and contexts
