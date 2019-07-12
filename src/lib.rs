@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 // #[macro_use]
 // extern crate lazy_static;
 use args::Command;
@@ -609,7 +610,8 @@ pub mod util {
         Ok(false)
     }
 } /* util */
-// arg
+
+// arg :: clap {{{1
 pub mod arg {
     #[allow(unused_imports)]
     use clap::{App, AppSettings, Arg, SubCommand};
@@ -619,6 +621,7 @@ pub mod arg {
             .about(env!("CARGO_PKG_DESCRIPTION"))
             .version(env!("CARGO_PKG_VERSION"))
             .author(env!("CARGO_PKG_AUTHORS"))
+            // switches
             .arg(
                 Arg::with_name("verbosity")
                     .short("v")
@@ -660,12 +663,19 @@ pub mod arg {
                     .short("P")
                     .help("Hide priorities from output"),
             )
+            // options
+            .arg(
+                Arg::with_name("config")
+                    .short("d")
+                    .value_name("CONFIG_FILE")
+                    .help("Use a config file to set preferences")
+                    .takes_value(true),
+            )
             .get_matches();
     }
 }
 // args :: Build CLI Arguments {{{1
 pub mod args {
-    /** Defines all arguments and commands * * **/
     use structopt::StructOpt;
 
     /// Command line options
@@ -818,7 +828,6 @@ pub mod args {
         },
     }
 } /* args */
-
 // logger :: format output of env_logger {{{1
 pub mod logger {
     use chrono::Local;
