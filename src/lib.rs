@@ -53,16 +53,16 @@ struct Ansi;
 
 #[allow(dead_code)]
 impl Ansi {
-    const HOTPINK: u8 = 198;
-    const LIME: u8 = 154;
-    const LIGHTORANGE: u8 = 215;
-    const GREEN: u8 = 2;
     const BLUE: u8 = 4;
-    const TURQUOISE: u8 = 37;
-    const TAN: u8 = 179;
+    const GREEN: u8 = 2;
     const GREY: u8 = 246;
-    const SKYBLUE: u8 = 111;
+    const HOTPINK: u8 = 198;
+    const LIGHTORANGE: u8 = 215;
+    const LIME: u8 = 154;
     const OLIVE: u8 = 113;
+    const SKYBLUE: u8 = 111;
+    const TAN: u8 = 179;
+    const TURQUOISE: u8 = 37;
 }
 
 /// Get item style from preferences (or default)
@@ -184,22 +184,22 @@ fn get_todo_file_path() -> Result<PathBuf> {
 #[derive(Debug, Deserialize)]
 /// Color settings for terminal output
 struct Style {
-    name: String,
-    color_fg: Option<u8>,
-    color_bg: Option<u8>,
-    bold: Option<bool>,
-    intense: Option<bool>,
+    name:      String,
+    color_fg:  Option<u8>,
+    color_bg:  Option<u8>,
+    bold:      Option<bool>,
+    intense:   Option<bool>,
     underline: Option<bool>,
 }
 
 impl Style {
     fn default(name: &str) -> Style {
         let mut default = Style {
-            name: name.into(),
-            color_fg: None,
-            color_bg: None,
-            bold: None,
-            intense: None,
+            name:      name.into(),
+            color_fg:  None,
+            color_bg:  None,
+            bold:      None,
+            intense:   None,
             underline: None,
         };
         if name.starts_with("pri") {
@@ -225,18 +225,18 @@ impl Style {
 #[derive(Debug)]
 /// Wrapper that holds all current settings, args, etc.
 struct Context {
-    opts: args::Opt,
+    opts:     args::Opt,
     settings: Settings,
-    styles: Vec<Style>,
+    styles:   Vec<Style>,
 }
 
 /// General app settings
 #[derive(Debug, Deserialize)]
 struct Settings {
-    todo_file: Option<String>,
-    done_file: Option<String>,
-    report_file: Option<String>,
-    date_on_add: Option<bool>,
+    todo_file:      Option<String>,
+    done_file:      Option<String>,
+    report_file:    Option<String>,
+    date_on_add:    Option<bool>,
     default_action: Option<String>,
 }
 
@@ -244,7 +244,7 @@ struct Settings {
 #[derive(Debug, Deserialize)]
 struct Config {
     general: Settings,
-    styles: Vec<Style>,
+    styles:  Vec<Style>,
 }
 
 /// Gets toml config file in same directory as src
@@ -327,9 +327,9 @@ fn delete(
                 }
                 let result = re.replace_all(&task.raw, "");
                 let new = Task {
-                    id: task.id,
+                    id:     task.id,
                     parsed: todo_txt::parser::task(&result).unwrap(),
-                    raw: result.split_whitespace().collect::<Vec<&str>>().join(" "),
+                    raw:    result.split_whitespace().collect::<Vec<&str>>().join(" "),
                 };
                 info!("Task after editing: {}", new.raw);
                 println!("TODO: Removed '{}' from task.", t);
@@ -349,9 +349,9 @@ fn delete(
                     tasks.remove(i);
                 } else {
                     tasks[i] = Task {
-                        id: t.id,
+                        id:     t.id,
                         parsed: todo_txt::parser::task("").unwrap(),
-                        raw: "".to_string(),
+                        raw:    "".to_string(),
                     };
                 }
                 println!("{}", msg);
@@ -400,9 +400,9 @@ where
         .map(|l| {
             task_ct += 1;
             Task {
-                id: task_ct,
+                id:     task_ct,
                 parsed: todo_txt::parser::task(l).expect("couldn't parse string as task"),
-                raw: l.to_string(),
+                raw:    l.to_string(),
             }
         })
         .collect())
@@ -480,7 +480,7 @@ fn list(
     sort_tasks(
         tasks,
         &[SortBy {
-            field: SortByField::Id,
+            field:   SortByField::Id,
             reverse: false,
         }],
     );
@@ -609,9 +609,63 @@ pub mod util {
         Ok(false)
     }
 } /* util */
+// arg
+pub mod arg {
+    #[allow(unused_imports)]
+    use clap::{App, AppSettings, Arg, SubCommand};
+
+    fn main() {
+        let cli = App::new(env!("CARGO_PKG_NAME"))
+            .about(env!("CARGO_PKG_DESCRIPTION"))
+            .version(env!("CARGO_PKG_VERSION"))
+            .author(env!("CARGO_PKG_AUTHORS"))
+            .arg(
+                Arg::with_name("verbosity")
+                    .short("v")
+                    .help("Increase log verbosity")
+                    .multiple(true),
+            )
+            .arg(
+                Arg::with_name("quiet")
+                    .short("q")
+                    .help("Quiet debug messages"),
+            )
+            .arg(
+                Arg::with_name("plain")
+                    .short("p")
+                    .help("Plain mode - turn off colors"),
+            )
+            .arg(
+                Arg::with_name("preserve_line_numbers")
+                    .short("N")
+                    .help("Preserve line numbers"),
+            )
+            .arg(
+                Arg::with_name("remove_blank_lines")
+                    .short("n")
+                    .help("Don't preserve line numbers"),
+            )
+            .arg(
+                Arg::with_name("hide_context")
+                    .short("@")
+                    .help("Hide context names from output"),
+            )
+            .arg(
+                Arg::with_name("hide_project")
+                    .short("+")
+                    .help("Hide project names from output"),
+            )
+            .arg(
+                Arg::with_name("hide_priority")
+                    .short("P")
+                    .help("Hide priorities from output"),
+            )
+            .get_matches();
+    }
+}
 // args :: Build CLI Arguments {{{1
 pub mod args {
-    /** Defines all arguments and commands */
+    /** Defines all arguments and commands * * **/
     use structopt::StructOpt;
 
     /// Command line options

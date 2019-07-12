@@ -21,6 +21,7 @@ failure = "0.1.5"
 structopt = { version = "0.2", features = ["wrap_help"] }
 exitfailure = "0.5.1"
 shellexpand = "1.0.0"
+clap = "2.33"
 
 [dev-dependencies]
 pretty_assertions = "0.6"
