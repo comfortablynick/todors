@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-// #[macro_use]
-// extern crate lazy_static;
-use args::Command;
+#![allow(dead_code)]
+// use args::Command;
+use arg::{Command, Opt};
 use errors::{Error, Result};
 use failure::{err_msg, ResultExt};
 use log::{debug, info, trace};
@@ -13,6 +13,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
 };
+#[allow(unused_imports)]
 use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, WriteColor};
 
@@ -226,7 +227,7 @@ impl Style {
 #[derive(Debug)]
 /// Wrapper that holds all current settings, args, etc.
 struct Context {
-    opts:     args::Opt,
+    opts:     Opt,
     settings: Settings,
     styles:   Vec<Style>,
 }
@@ -516,7 +517,8 @@ fn list(
 
 /// Entry point for main program logic
 pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
-    let opts = args::Opt::from_iter(args);
+    // let opts = args::Opt::from_iter(args);
+    let opts = arg::parse()?;
 
     if !opts.quiet {
         logger::init_logger(opts.verbosity);
@@ -611,16 +613,53 @@ pub mod util {
     }
 } /* util */
 
-// arg :: clap {{{1
+// arg :: cli definition {{{1
 pub mod arg {
-    #[allow(unused_imports)]
-    use clap::{App, AppSettings, Arg, SubCommand};
+    use crate::errors::Result;
+    use clap::{value_t, values_t, App, AppSettings, Arg, SubCommand};
+    use log::{debug, log_enabled, trace};
+    use std::convert::TryInto;
 
-    fn main() {
+    /// Command line arguments
+    #[derive(Debug, Default, Clone, Eq, PartialEq)]
+    pub struct Opt {
+        pub hide_context:          u8,
+        pub hide_project:          u8,
+        pub remove_blank_lines:    bool,
+        pub preserve_line_numbers: bool,
+        pub hide_priority:         u8,
+        pub plain:                 bool,
+        pub verbosity:             u8,
+        pub quiet:                 bool,
+        pub config_file:           Option<std::path::PathBuf>,
+        pub cmd:                   Option<Command>,
+    }
+
+    /// Subcommands
+    #[derive(Debug, Clone, Eq, PartialEq)]
+    pub enum Command {
+        Add { task: String },
+        Addm { tasks: Vec<String> },
+        Addto,
+        Append { item: usize, text: String },
+        Delete { item: usize, term: Option<String> },
+        List { terms: Vec<String> },
+        Listall { terms: Vec<String> },
+        Listpri { priorities: Vec<String> },
+    }
+
+    #[allow(clippy::cognitive_complexity)]
+    pub fn parse() -> Result<Opt> {
         let cli = App::new(env!("CARGO_PKG_NAME"))
             .about(env!("CARGO_PKG_DESCRIPTION"))
             .version(env!("CARGO_PKG_VERSION"))
             .author(env!("CARGO_PKG_AUTHORS"))
+            //
+            // settings
+            .setting(AppSettings::DontCollapseArgsInUsage)
+            .setting(AppSettings::VersionlessSubcommands)
+            // .setting(AppSettings::DisableHelpFlags)
+            //
             // switches
             .arg(
                 Arg::with_name("verbosity")
@@ -663,15 +702,128 @@ pub mod arg {
                     .short("P")
                     .help("Hide priorities from output"),
             )
-            // options
+            // arguments
             .arg(
                 Arg::with_name("config")
                     .short("d")
                     .value_name("CONFIG_FILE")
                     .help("Use a config file to set preferences")
-                    .takes_value(true),
+                    .takes_value(true)
+                    .env("TODORS_CFG_FILE"),
+            )
+            //
+            // commands
+            .subcommand(
+                SubCommand::with_name("list")
+                    .alias("ls")
+                    .about("Displays all tasks (optionally filtered by terms)")
+                    .arg(
+                        Arg::with_name("terms")
+                            .help("Term(s) to filter task list by")
+                            .takes_value(true)
+                            .value_name("TERM")
+                            .multiple(true),
+                    ),
+            )
+            .subcommand(
+                SubCommand::with_name("add")
+                    .alias("a")
+                    .about("Add task to todo.txt file")
+                    .arg(
+                        Arg::with_name("task")
+                            .help("Todo item")
+                            .long_help("THING I NEED TO DO +project @context")
+                            .takes_value(true)
+                            .value_name("TASK")
+                            .required(true),
+                    ),
+            )
+            .subcommand(
+                SubCommand::with_name("addm")
+                    .about("Add multiple lines to todo.txt file")
+                    .arg(
+                        Arg::with_name("tasks")
+                            .help("Todo items (one on each line)")
+                            .long_help(
+                                "\"FIRST THING I NEED TO DO +project1 @context
+ SECOND THING I NEED TO DO +project2 @context\"
+ Adds FIRST THING I NEED TO DO to your todo.txt on its own line and
+ Adds SECOND THING I NEED TO DO to you todo.txt on its own line.
+ Project and context notation optional.",
+                            )
+                            .takes_value(true)
+                            .value_name("TASKS")
+                            .value_delimiter("\n")
+                            .required(true),
+                    ),
+            )
+            .subcommand(
+                SubCommand::with_name("del")
+                    .alias("rm")
+                    .about("Deletes the task on line ITEM of todo.txt")
+                    .long_about("If TERM specified, deletes only TERM from the task")
+                    .arg(
+                        Arg::with_name("item")
+                            .value_name("ITEM")
+                            .help("Line number of task to delete")
+                            .takes_value(true)
+                            .required(true),
+                    )
+                    .arg(
+                        Arg::with_name("term")
+                            .value_name("TERM")
+                            .help("Optional term to remove from item")
+                            .takes_value(true),
+                    ),
             )
             .get_matches();
+
+        let mut opt = Opt::default();
+        // set fields
+        opt.hide_context = value_t!(cli, "hide_context", u8).unwrap_or(0);
+        opt.hide_project = value_t!(cli, "hide_project", u8).unwrap_or(0);
+        opt.hide_priority = value_t!(cli, "hide_priority", u8).unwrap_or(0);
+        opt.remove_blank_lines = cli.is_present("remove_blank_lines");
+        opt.preserve_line_numbers = cli.is_present("preserve_line_numbers");
+        opt.plain = cli.is_present("plain");
+        opt.quiet = cli.is_present("quiet");
+        opt.verbosity = cli.occurrences_of("verbosity").try_into().unwrap();
+        opt.config_file = value_t!(cli, "config", std::path::PathBuf).ok();
+
+        match cli.subcommand() {
+            ("add", Some(arg)) => {
+                opt.cmd = Some(Command::Add {
+                    task: value_t!(arg.value_of("task"), String).unwrap(),
+                });
+            }
+            ("addm", Some(args)) => {
+                opt.cmd = Some(Command::Addm {
+                    tasks: values_t!(args.values_of("tasks"), String).unwrap(),
+                });
+            }
+            ("del", Some(args)) => {
+                opt.cmd = Some(Command::Delete {
+                    item: value_t!(args.value_of("item"), usize).unwrap(),
+                    term: value_t!(args.value_of("term"), String).ok(),
+                });
+            }
+            ("list", Some(args)) => {
+                opt.cmd = Some(Command::List {
+                    terms: values_t!(args.values_of("terms"), String).unwrap_or_default(),
+                });
+            }
+            ("", None) => (),
+            _ => unreachable!(),
+        }
+
+        debug!("{:#?}", opt);
+
+        if log_enabled!(log::Level::Trace) {
+            for m in cli.args {
+                trace!("{:#?}", m);
+            }
+        }
+        Ok(opt)
     }
 }
 // args :: Build CLI Arguments {{{1

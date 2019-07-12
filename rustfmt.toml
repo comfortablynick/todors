@@ -6,7 +6,7 @@
 # tab_spaces = 4
 newline_style = "Unix"
 # use_small_heuristics = "Default"
-# indent_style = "Block"
+# indent_style = "Visual"
 # wrap_comments = false
 format_code_in_doc_comments = true
 # comment_width = 80
