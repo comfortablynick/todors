@@ -1,5 +1,5 @@
-#[macro_use]
-extern crate lazy_static;
+// #[macro_use]
+// extern crate lazy_static;
 use args::Command;
 use errors::{Error, Result};
 use failure::{err_msg, ResultExt};
@@ -98,38 +98,6 @@ fn get_pri_name(pri: u8) -> Option<String> {
         }
         _ => None,
     }
-}
-
-#[allow(dead_code)]
-/// Format output using regex to identify priority, project, context
-fn format_regex(tasks: &[Task], ctx: &Context, total_task_ct: usize) -> Result {
-    use ansi_term::Color::Fixed;
-    use std::fmt::Write;
-    lazy_static! {
-        static ref RE_CONTEXT: Regex = Regex::new(r"@\w+").unwrap();
-        static ref RE_PROJECT: Regex = Regex::new(r"\+\w+").unwrap();
-        // static ref RE_PRIORITY: Regex = Regex::new(r"\([A-Z]\)").unwrap();
-    }
-    let mut buf = String::new();
-    for task in tasks {
-        let line = &task.raw;
-        let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
-        let _color = get_colors_from_style(&pri, ctx)?;
-        let fmt = format!(
-            "{:0ct$} {}",
-            &task.id,
-            line,
-            ct = total_task_ct.to_string().len()
-        );
-        writeln!(buf, "{}", Fixed(135).bold().paint(fmt))?;
-    }
-    let buf = RE_CONTEXT.replace_all(&buf, |caps: &regex::Captures| {
-        format!("{}", Fixed(215).paint(caps[0].to_owned()))
-    });
-    let stdout = std::io::stdout();
-    let mut lock = stdout.lock();
-    lock.write_all(buf.as_bytes())?;
-    Ok(())
 }
 
 /// Format output and add color to priorities, projects and contexts
@@ -337,28 +305,85 @@ fn addm(tasks: &[String]) -> Result {
     Ok(())
 }
 
+#[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete word from task
-fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<bool> {
+fn delete(
+    tasks: &mut Vec<Task>,
+    item: usize,
+    term: &Option<String>,
+    ctx: &Context,
+) -> Result<bool> {
     if let Some(t) = term {
-        info!("Removing {:?} from item# {}", t, item);
-    } else {
+        let re = Regex::new(t).unwrap();
         for i in 0..tasks.len() {
-            let t = &tasks[i];
-            if t.id == item {
-                info!("Removing item# {} '{}' at index {}", t.id, t.raw, i);
-                if util::ask_user_yes_no(&format!("Delete '{}'?  (y/n)\n", t.raw,))? {
-                    let msg = format!("{} {}\nTODO: {} deleted.", &t.id, &t.raw, &t.id);
-                    tasks.remove(i);
-                    println!("{}", msg);
-                    return Ok(true);
+            let task = &tasks[i];
+            if task.id == item {
+                info!("Removing {:?} from item# {}: {}", t, item, task.raw);
+                println!("{} {}", task.id, task.raw);
+                if !re.is_match(&task.raw) {
+                    info!("'{}' not found in task.", t);
+                    println!("TODO: '{}' not found; no removal done.", t);
+                    return Ok(false);
                 }
-                println!("TODO: No tasks were deleted.");
+                let result = re.replace_all(&task.raw, "");
+                let new = Task {
+                    id: task.id,
+                    parsed: todo_txt::parser::task(&result).unwrap(),
+                    raw: result.split_whitespace().collect::<Vec<&str>>().join(" "),
+                };
+                info!("Task after editing: {}", new.raw);
+                println!("TODO: Removed '{}' from task.", t);
+                println!("{} {}", new.id, new.raw);
+                tasks[i] = new;
+            }
+        }
+        return Ok(true);
+    }
+    for i in 0..tasks.len() {
+        let t = &tasks[i];
+        if t.id == item {
+            info!("Removing item# {} '{}' at index {}", t.id, t.raw, i);
+            if util::ask_user_yes_no(&format!("Delete '{}'?  (y/n)\n", t.raw,))? {
+                let msg = format!("{} {}\nTODO: {} deleted.", &t.id, &t.raw, &t.id);
+                if !ctx.opts.preserve_line_numbers || ctx.opts.remove_blank_lines {
+                    tasks.remove(i);
+                } else {
+                    tasks[i] = Task {
+                        id: t.id,
+                        parsed: todo_txt::parser::task("").unwrap(),
+                        raw: "".to_string(),
+                    };
+                }
+                println!("{}", msg);
                 return Ok(true);
             }
+            println!("TODO: No tasks were deleted.");
+            return Ok(true);
         }
     }
     println!("TODO: No task {}.", item);
     Ok(false)
+}
+
+/// Write tasks to file
+fn write_tasks<P>(tasks: &[Task], todo_file_path: P) -> Result
+where
+    P: AsRef<Path>,
+    P: std::fmt::Debug,
+{
+    let buf = tasks
+        .iter()
+        .map(|t| t.raw.clone())
+        .collect::<Vec<String>>()
+        .join("\n");
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(&todo_file_path)?;
+    file.write_all(buf.as_bytes())?;
+    file.flush()?;
+    info!("Wrote tasks to file {:?}", todo_file_path);
+    Ok(())
 }
 
 /// Load todo.txt file and parse into Task objects
@@ -511,22 +536,22 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         styles: cfg.styles,
     };
     debug!("{:#?}", ctx);
-    let mut tasks = get_tasks(
-        ctx.settings
-            .todo_file
-            .as_ref()
-            .and_then(|s| shellexpand::env(s).ok())
-            .expect("error expanding env vars in todo.txt path")
-            .as_ref(),
-    )?;
+    let todo_file_path = ctx
+        .settings
+        .todo_file
+        .as_ref()
+        .and_then(|s| shellexpand::env(s).ok())
+        .expect("error expanding env vars in todo.txt path");
+    let mut tasks = get_tasks(todo_file_path.as_ref())?;
 
     match &ctx.opts.cmd {
         Some(command) => match command {
             Command::Add { task } => add(task)?,
             Command::Addm { tasks } => addm(tasks)?,
             Command::Delete { item, term } => {
-                if delete(&mut tasks, *item, term)? {
+                if delete(&mut tasks, *item, term, &ctx)? {
                     // TODO: write tasks to file
+                    write_tasks(&tasks, todo_file_path.as_ref())?;
                     return Ok(());
                 }
                 std::process::exit(1)
@@ -610,6 +635,18 @@ pub mod args {
         /// Use twice to show project names (default).
         #[structopt(short = "+", parse(from_occurrences))]
         pub hide_project: u8,
+
+        /// Don't preserve line numbers
+        ///
+        /// Automatically remove blank lines on task deletion.
+        #[structopt(short = "n")]
+        pub remove_blank_lines: bool,
+
+        /// Preserve line numbers
+        ///
+        /// Don't remove blank lines on task deletion (default).
+        #[structopt(short = "N")]
+        pub preserve_line_numbers: bool,
 
         /// Hide priority labels in list output.
         ///
