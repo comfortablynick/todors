@@ -616,7 +616,7 @@ pub mod util {
 // arg :: cli definition {{{1
 pub mod arg {
     use crate::errors::Result;
-    use clap::{value_t, values_t, App, AppSettings, Arg, SubCommand};
+    use clap::{value_t, values_t, App, AppSettings, SubCommand};
     use log::{debug, log_enabled, trace};
     use std::convert::TryInto;
 
@@ -646,6 +646,273 @@ pub mod arg {
         List { terms: Vec<String> },
         Listall { terms: Vec<String> },
         Listpri { priorities: Vec<String> },
+    }
+
+    type Arg = clap::Arg<'static, 'static>;
+
+    #[derive(Clone)]
+    pub struct CliArg {
+        claparg:       Arg,
+        pub name:      &'static str,
+        pub doc_short: &'static str,
+        pub doc_long:  &'static str,
+        pub hidden:    bool,
+        pub kind:      CliArgKind,
+    }
+
+    #[derive(Clone)]
+    pub enum CliArgKind {
+        Positional {
+            value_name: &'static str,
+            multiple:   bool,
+        },
+        Switch {
+            name:     &'static str,
+            short:    &'static str,
+            long:     Option<&'static str>,
+            multiple: bool,
+        },
+        Flag {
+            name:            &'static str,
+            long:            Option<&'static str>,
+            short:           &'static str,
+            value_name:      &'static str,
+            multiple:        bool,
+            possible_values: Vec<&'static str>,
+        },
+    }
+
+    impl CliArg {
+        /// Create a positional argument
+        fn positional(name: &'static str, value_name: &'static str) -> CliArg {
+            CliArg {
+                claparg: Arg::with_name(name).value_name(value_name),
+                name,
+                doc_short: "",
+                doc_long: "",
+                hidden: false,
+                kind: CliArgKind::Positional {
+                    value_name,
+                    multiple: false,
+                },
+            }
+        }
+
+        /// Create a boolean switch
+        fn switch(name: &'static str, short: &'static str) -> CliArg {
+            CliArg {
+                claparg: Arg::with_name(name).short(short),
+                name,
+                doc_short: "",
+                doc_long: "",
+                hidden: false,
+                kind: CliArgKind::Switch {
+                    name,
+                    long: None,
+                    short,
+                    multiple: false,
+                },
+            }
+        }
+
+        /// Create a flag. A flag always accepts exactly one argument.
+        fn flag(name: &'static str, short: &'static str, value_name: &'static str) -> CliArg {
+            CliArg {
+                claparg: Arg::with_name(name)
+                    .value_name(value_name)
+                    .takes_value(true)
+                    .number_of_values(1),
+                name,
+                doc_short: "",
+                doc_long: "",
+                hidden: false,
+                kind: CliArgKind::Flag {
+                    name,
+                    long: None,
+                    short,
+                    value_name,
+                    multiple: false,
+                    possible_values: vec![],
+                },
+            }
+        }
+
+        /// Set the short flag name.
+        ///
+        /// This panics if this arg isn't a switch or a flag.
+        fn short(mut self, short_name: &'static str) -> CliArg {
+            match self.kind {
+                CliArgKind::Positional { .. } => panic!("expected switch or flag"),
+                CliArgKind::Switch { ref mut short, .. } => {
+                    *short = short_name;
+                }
+                CliArgKind::Flag { ref mut short, .. } => {
+                    *short = short_name;
+                }
+            }
+            self.claparg = self.claparg.short(short_name);
+            self
+        }
+
+        /// Set the "short" help text.
+        ///
+        /// This should be a single line. It is shown in the `-h` output.
+        fn help(mut self, text: &'static str) -> CliArg {
+            self.doc_short = text;
+            self.claparg = self.claparg.help(text);
+            self
+        }
+
+        /// Set the "long" help text.
+        ///
+        /// This should be at least a single line, usually longer. It is shown in `--help` output.
+        fn long_help(mut self, text: &'static str) -> CliArg {
+            self.doc_long = text;
+            self.claparg = self.claparg.long_help(text);
+            self
+        }
+
+        /// Enable this argument to accept multiple values.
+        ///
+        /// Note that while switches and flags can always be repeated an arbitrary
+        /// number of times, this particular method enables the flag to be
+        /// logically repeated where each occurrence of the flag may have
+        /// significance. That is, when this is disabled, then a switch is either
+        /// present or not and a flag has exactly one value (the last one given).
+        /// When this is enabled, then a switch has a count corresponding to the
+        /// number of times it is used and a flag's value is a list of all values
+        /// given.
+        ///
+        /// For the most part, this distinction is resolved by consumers of clap's
+        /// configuration.
+        fn multiple(mut self) -> CliArg {
+            match self.kind {
+                CliArgKind::Positional {
+                    ref mut multiple, ..
+                } => {
+                    *multiple = true;
+                }
+                CliArgKind::Switch {
+                    ref mut multiple, ..
+                } => {
+                    *multiple = true;
+                }
+                CliArgKind::Flag {
+                    ref mut multiple, ..
+                } => {
+                    *multiple = true;
+                }
+            }
+            self.claparg = self.claparg.multiple(true);
+            self
+        }
+
+        /// Hide this flag from all documentation.
+        fn hidden(mut self) -> CliArg {
+            self.hidden = true;
+            self.claparg = self.claparg.hidden(true);
+            self
+        }
+
+        /// Set the possible values for this argument. If this argument is not
+        /// a flag, then this panics.
+        ///
+        /// If the end user provides any value other than what is given here, then
+        /// clap will report an error to the user.
+        ///
+        /// Note that this will suppress clap's automatic output of possible values
+        /// when using -h/--help, so users of this method should provide
+        /// appropriate documentation for the choices in the "long" help text.
+        fn possible_values(mut self, values: &[&'static str]) -> CliArg {
+            match self.kind {
+                CliArgKind::Positional { .. } => panic!("expected flag"),
+                CliArgKind::Switch { .. } => panic!("expected flag"),
+                CliArgKind::Flag {
+                    ref mut possible_values,
+                    ..
+                } => {
+                    *possible_values = values.to_vec();
+                    self.claparg = self
+                        .claparg
+                        .possible_values(values)
+                        .hide_possible_values(true);
+                }
+            }
+            self
+        }
+
+        /// Add an alias to this argument.
+        ///
+        /// Aliases are not show in the output of -h/--help.
+        fn alias(mut self, name: &'static str) -> CliArg {
+            self.claparg = self.claparg.alias(name);
+            self
+        }
+
+        /// Permit this flag to have values that begin with a hypen.
+        ///
+        /// This panics if this arg is not a flag.
+        fn allow_leading_hyphen(mut self) -> CliArg {
+            match self.kind {
+                CliArgKind::Positional { .. } => panic!("expected flag"),
+                CliArgKind::Switch { .. } => panic!("expected flag"),
+                CliArgKind::Flag { .. } => {
+                    self.claparg = self.claparg.allow_hyphen_values(true);
+                }
+            }
+            self
+        }
+
+        /// Sets this argument to a required argument, unless one of the given
+        /// arguments is provided.
+        fn required_unless(mut self, names: &[&'static str]) -> CliArg {
+            self.claparg = self.claparg.required_unless_one(names);
+            self
+        }
+
+        /// Sets conflicting arguments. That is, if this argument is used whenever
+        /// any of the other arguments given here are used, then clap will report
+        /// an error.
+        fn conflicts(mut self, names: &[&'static str]) -> CliArg {
+            self.claparg = self.claparg.conflicts_with_all(names);
+            self
+        }
+
+        /// Sets an overriding argument. That is, if this argument and the given
+        /// argument are both provided by an end user, then the "last" one will
+        /// win. ripgrep will behave as if any previous instantiations did not
+        /// happen.
+        fn overrides(mut self, name: &'static str) -> CliArg {
+            self.claparg = self.claparg.overrides_with(name);
+            self
+        }
+
+        /// Sets the default value of this argument if and only if the argument
+        /// given is present.
+        fn default_value_if(mut self, value: &'static str, arg_name: &'static str) -> CliArg {
+            self.claparg = self.claparg.default_value_if(arg_name, None, value);
+            self
+        }
+
+        /// Indicate that any value given to this argument should be a number. If
+        /// it's not a number, then clap will report an error to the end user.
+        fn number(mut self) -> CliArg {
+            self.claparg = self.claparg.validator(|val| {
+                val.parse::<usize>()
+                    .map(|_| ())
+                    .map_err(|err| err.to_string())
+            });
+            self
+        }
+    }
+
+    #[allow(unused_macros)]
+    /// Add an extra space to long descriptions so that a blank line is inserted
+    /// between flag descriptions in --help output.
+    macro_rules! long {
+        ($lit:expr) => {
+            concat!($lit, " ")
+        };
     }
 
     #[allow(clippy::cognitive_complexity)]
@@ -690,17 +957,20 @@ pub mod arg {
             .arg(
                 Arg::with_name("hide_context")
                     .short("@")
-                    .help("Hide context names from output"),
+                    .help("Hide context names from output")
+                    .long_help("Use twice to show context names (default)."),
             )
             .arg(
                 Arg::with_name("hide_project")
                     .short("+")
-                    .help("Hide project names from output"),
+                    .help("Hide project names from output")
+                    .long_help("Use twice to show project names (default)."),
             )
             .arg(
                 Arg::with_name("hide_priority")
                     .short("P")
-                    .help("Hide priorities from output"),
+                    .help("Hide priorities from output")
+                    .long_help("Use twice to show priorities (default)."),
             )
             // arguments
             .arg(
@@ -746,10 +1016,10 @@ pub mod arg {
                             .help("Todo items (one on each line)")
                             .long_help(
                                 "\"FIRST THING I NEED TO DO +project1 @context
- SECOND THING I NEED TO DO +project2 @context\"
- Adds FIRST THING I NEED TO DO to your todo.txt on its own line and
- Adds SECOND THING I NEED TO DO to you todo.txt on its own line.
- Project and context notation optional.",
+SECOND THING I NEED TO DO +project2 @context\"
+
+Adds FIRST THING I NEED TO DO on its own line and SECOND THING I NEED TO DO on its own line.
+Project and context notation optional.",
                             )
                             .takes_value(true)
                             .value_name("TASKS")
