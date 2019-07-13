@@ -884,7 +884,7 @@ pub mod arg {
 
         /// Sets an overriding argument. That is, if this argument and the given
         /// argument are both provided by an end user, then the "last" one will
-        /// win. ripgrep will behave as if any previous instantiations did not
+        /// win. the cli will behave as if any previous instantiations did not
         /// happen.
         fn overrides(mut self, name: &'static str) -> CliArg {
             self.claparg = self.claparg.overrides_with(name);
@@ -917,6 +917,41 @@ pub mod arg {
         ($lit:expr) => {
             concat!($lit, " ")
         };
+    }
+
+    fn flag_verbosity(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Increase log verbosity printed to console.";
+        const LONG: &str = long!(
+            "\
+    Increase log verbosity printed to console. Log verbosity increases
+    each time the flag is found.
+
+    For example: -v, -vv, -vvv
+
+    The quiet flag -q will override this setting and will silence log output."
+        );
+
+        let arg = CliArg::switch("verbosity", "v")
+            .help(SHORT)
+            .long_help(LONG)
+            .multiple();
+        args.push(arg);
+    }
+
+    fn flag_quiet(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Quiet debug messages.";
+        const LONG: &str = long!(
+            "\
+        Quiet debug messages on console. Overrides verbosity (-v) setting.
+
+        The arguments -vvvq will produce no console debug output."
+        );
+
+        let arg = CliArg::switch("quiet", "q")
+            .help(SHORT)
+            .long_help(LONG)
+            .overrides("verbosity");
+        args.push(arg);
     }
 
     #[allow(clippy::cognitive_complexity)]
