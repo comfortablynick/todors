@@ -23,7 +23,7 @@ date_on_add = true
 # ```
 [[styles]]
 name = 'done'
-color_fg = 198
+color_fg = 250
 
 [[styles]]
 name = 'project'

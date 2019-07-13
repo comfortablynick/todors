@@ -112,7 +112,11 @@ fn format_buffer(
     for task in tasks {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
-        let color = get_colors_from_style(&pri, ctx)?;
+        let color = if task.parsed.finished {
+            get_colors_from_style("done", ctx)?
+        } else {
+            get_colors_from_style(&pri, ctx)?
+        };
         buf.set_color(&color)?;
         // write line number (id)
         write!(
@@ -150,7 +154,7 @@ fn format_buffer(
                 write!(buf, " ")?;
             }
         }
-        if task.parsed.priority < 26 {
+        if task.parsed.priority < 26 || task.parsed.finished {
             buf.reset()?;
         }
         writeln!(buf)?;
