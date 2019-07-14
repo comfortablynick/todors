@@ -908,6 +908,12 @@ pub mod arg {
             });
             self
         }
+
+        /// Sets an environment variable default for the argument.
+        fn env(mut self, var_name: &'static str) -> CliArg {
+            self.claparg = self.claparg.env(var_name);
+            self
+        }
     }
 
     #[allow(unused_macros)]
@@ -952,6 +958,136 @@ pub mod arg {
             .long_help(LONG)
             .overrides("verbosity");
         args.push(arg);
+    }
+
+    fn flag_plain(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Plain mode to turn off colors.";
+        const LONG: &str = long!(
+            "\
+    Plain mode turns off colors. Overrides environment settings
+    that control terminal colors. Color settings in config will
+    have no effect."
+        );
+
+        let arg = CliArg::switch("plain", "p").help(SHORT).long_help(LONG);
+        args.push(arg);
+    }
+
+    fn flag_preserve_line_numbers(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Preserve line (task) numbers.";
+        const LONG: &str = long!(
+            "\
+    Preserve line (task) numbers. This allows consistent access of the
+    tasks by the same id each time. When a task is deleted, it will
+    remain blank.
+        "
+        );
+
+        let arg = CliArg::switch("preserve_line_numbers", "N")
+            .help(SHORT)
+            .long_help(LONG)
+            .overrides("remove_blank_lines");
+        args.push(arg);
+    }
+
+    fn flag_remove_blank_lines(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Don't preserve line (task) numbers";
+        const LONG: &str = long!(
+            "\
+    Don't preserve line (task) numbers. Opposite of -N. When a task is
+    deleted, the following tasks will be moved up one line."
+        );
+
+        let arg = CliArg::switch("remove_blank_lines", "n")
+            .help(SHORT)
+            .long_help(LONG);
+        args.push(arg);
+    }
+
+    fn flag_hide_context(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Hide task contexts from output.";
+        const LONG: &str = long!(
+            "\
+    Hide task contexts from output. Use twice to show contexts, which
+    is the default."
+        );
+
+        let arg = CliArg::switch("hide_context", "@")
+            .help(SHORT)
+            .long_help(LONG);
+        args.push(arg);
+    }
+
+    fn flag_hide_project(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Hide task projects from output.";
+        const LONG: &str = long!(
+            "\
+    Hide task projects from output. Use twice to show projects, which
+    is the default."
+        );
+
+        let arg = CliArg::switch("hide_project", "+")
+            .help(SHORT)
+            .long_help(LONG);
+        args.push(arg);
+    }
+
+    fn flag_hide_priority(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Hide task priorities from output.";
+        const LONG: &str = long!(
+            "\
+    Hide task priorities from output. Use twice to show priorities, which
+    is the default."
+        );
+
+        let arg = CliArg::switch("hide_priority", "P")
+            .help(SHORT)
+            .long_help(LONG);
+        args.push(arg);
+    }
+
+    fn flag_config_file(args: &mut Vec<CliArg>) {
+        const SHORT: &str = "Location of config toml file.";
+        const LONG: &str = long!(
+            "\
+    Location of toml config file. Various options can be set, including 
+    colors and styles."
+        );
+
+        let arg = CliArg::flag("config", "d", "CONFIG_FILE")
+            .help(SHORT)
+            .long_help(LONG)
+            .env("TODORS_CFG_FILE");
+        args.push(arg);
+    }
+
+    pub fn base_args() -> Vec<CliArg> {
+        let mut args = vec![];
+        flag_verbosity(&mut args);
+        flag_quiet(&mut args);
+        flag_preserve_line_numbers(&mut args);
+        flag_remove_blank_lines(&mut args);
+        flag_hide_context(&mut args);
+        flag_hide_project(&mut args);
+        flag_hide_priority(&mut args);
+
+        args
+    }
+
+    pub fn app() -> App<'static, 'static> {
+        let mut app = App::new(env!("CARGO_PKG_NAME"))
+            .about(env!("CARGO_PKG_DESCRIPTION"))
+            .version(env!("CARGO_PKG_VERSION"))
+            .author(env!("CARGO_PKG_AUTHORS"))
+            //
+            // settings
+            .setting(AppSettings::DontCollapseArgsInUsage)
+            .setting(AppSettings::VersionlessSubcommands);
+
+        for arg in base_args() {
+            app = app.arg(arg.claparg);
+        }
+        app
     }
 
     #[allow(clippy::cognitive_complexity)]
