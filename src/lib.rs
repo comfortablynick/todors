@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#![allow(dead_code)]
+// #![allow(dead_code)]
 // use args::Command;
 use arg::{Command, Opt};
 use errors::{Error, Result};
@@ -254,6 +254,7 @@ struct Config {
 }
 
 /// Gets toml config file in same directory as src
+/// TODO: takes from $PWD, not source dir
 fn get_def_cfg_file_path() -> Result<PathBuf> {
     let mut path =
         std::env::current_dir().context("get_def_cfg_file_path(): error getting current dir")?;
@@ -521,7 +522,6 @@ fn list(
 
 /// Entry point for main program logic
 pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
-    // let opts = args::Opt::from_iter(args);
     let opts = arg::parse()?;
 
     if !opts.quiet {
@@ -620,7 +620,7 @@ pub mod util {
 // arg :: cli definition {{{1
 pub mod arg {
     use crate::errors::Result;
-    use clap::{value_t, values_t, App, AppSettings, SubCommand};
+    use clap::{value_t, values_t, AppSettings, SubCommand};
     use log::{debug, log_enabled, trace};
     use std::convert::TryInto;
 
@@ -653,6 +653,7 @@ pub mod arg {
     }
 
     type Arg = clap::Arg<'static, 'static>;
+    type App = clap::App<'static, 'static>;
 
     #[derive(Clone)]
     pub struct CliArg {
@@ -688,7 +689,7 @@ pub mod arg {
 
     impl CliArg {
         /// Create a positional argument
-        fn positional(name: &'static str, value_name: &'static str) -> CliArg {
+        pub fn positional(name: &'static str, value_name: &'static str) -> CliArg {
             CliArg {
                 claparg: Arg::with_name(name).value_name(value_name),
                 name,
@@ -703,7 +704,7 @@ pub mod arg {
         }
 
         /// Create a boolean switch
-        fn switch(name: &'static str, short: &'static str) -> CliArg {
+        pub fn switch(name: &'static str, short: &'static str) -> CliArg {
             CliArg {
                 claparg: Arg::with_name(name).short(short),
                 name,
@@ -720,7 +721,7 @@ pub mod arg {
         }
 
         /// Create a flag. A flag always accepts exactly one argument.
-        fn flag(name: &'static str, short: &'static str, value_name: &'static str) -> CliArg {
+        pub fn flag(name: &'static str, short: &'static str, value_name: &'static str) -> CliArg {
             CliArg {
                 claparg: Arg::with_name(name)
                     .value_name(value_name)
@@ -744,7 +745,7 @@ pub mod arg {
         /// Set the short flag name.
         ///
         /// This panics if this arg isn't a switch or a flag.
-        fn short(mut self, short_name: &'static str) -> CliArg {
+        pub fn short(mut self, short_name: &'static str) -> CliArg {
             match self.kind {
                 CliArgKind::Positional { .. } => panic!("expected switch or flag"),
                 CliArgKind::Switch { ref mut short, .. } => {
@@ -761,7 +762,7 @@ pub mod arg {
         /// Set the "short" help text.
         ///
         /// This should be a single line. It is shown in the `-h` output.
-        fn help(mut self, text: &'static str) -> CliArg {
+        pub fn help(mut self, text: &'static str) -> CliArg {
             self.doc_short = text;
             self.claparg = self.claparg.help(text);
             self
@@ -770,7 +771,7 @@ pub mod arg {
         /// Set the "long" help text.
         ///
         /// This should be at least a single line, usually longer. It is shown in `--help` output.
-        fn long_help(mut self, text: &'static str) -> CliArg {
+        pub fn long_help(mut self, text: &'static str) -> CliArg {
             self.doc_long = text;
             self.claparg = self.claparg.long_help(text);
             self
@@ -789,7 +790,7 @@ pub mod arg {
         ///
         /// For the most part, this distinction is resolved by consumers of clap's
         /// configuration.
-        fn multiple(mut self) -> CliArg {
+        pub fn multiple(mut self) -> CliArg {
             match self.kind {
                 CliArgKind::Positional {
                     ref mut multiple, ..
@@ -812,7 +813,7 @@ pub mod arg {
         }
 
         /// Hide this flag from all documentation.
-        fn hidden(mut self) -> CliArg {
+        pub fn hidden(mut self) -> CliArg {
             self.hidden = true;
             self.claparg = self.claparg.hidden(true);
             self
@@ -827,7 +828,7 @@ pub mod arg {
         /// Note that this will suppress clap's automatic output of possible values
         /// when using -h/--help, so users of this method should provide
         /// appropriate documentation for the choices in the "long" help text.
-        fn possible_values(mut self, values: &[&'static str]) -> CliArg {
+        pub fn possible_values(mut self, values: &[&'static str]) -> CliArg {
             match self.kind {
                 CliArgKind::Positional { .. } => panic!("expected flag"),
                 CliArgKind::Switch { .. } => panic!("expected flag"),
@@ -848,7 +849,7 @@ pub mod arg {
         /// Add an alias to this argument.
         ///
         /// Aliases are not show in the output of -h/--help.
-        fn alias(mut self, name: &'static str) -> CliArg {
+        pub fn alias(mut self, name: &'static str) -> CliArg {
             self.claparg = self.claparg.alias(name);
             self
         }
@@ -856,7 +857,7 @@ pub mod arg {
         /// Permit this flag to have values that begin with a hypen.
         ///
         /// This panics if this arg is not a flag.
-        fn allow_leading_hyphen(mut self) -> CliArg {
+        pub fn allow_leading_hyphen(mut self) -> CliArg {
             match self.kind {
                 CliArgKind::Positional { .. } => panic!("expected flag"),
                 CliArgKind::Switch { .. } => panic!("expected flag"),
@@ -869,7 +870,7 @@ pub mod arg {
 
         /// Sets this argument to a required argument, unless one of the given
         /// arguments is provided.
-        fn required_unless(mut self, names: &[&'static str]) -> CliArg {
+        pub fn required_unless(mut self, names: &[&'static str]) -> CliArg {
             self.claparg = self.claparg.required_unless_one(names);
             self
         }
@@ -877,7 +878,7 @@ pub mod arg {
         /// Sets conflicting arguments. That is, if this argument is used whenever
         /// any of the other arguments given here are used, then clap will report
         /// an error.
-        fn conflicts(mut self, names: &[&'static str]) -> CliArg {
+        pub fn conflicts(mut self, names: &[&'static str]) -> CliArg {
             self.claparg = self.claparg.conflicts_with_all(names);
             self
         }
@@ -886,21 +887,21 @@ pub mod arg {
         /// argument are both provided by an end user, then the "last" one will
         /// win. the cli will behave as if any previous instantiations did not
         /// happen.
-        fn overrides(mut self, name: &'static str) -> CliArg {
+        pub fn overrides(mut self, name: &'static str) -> CliArg {
             self.claparg = self.claparg.overrides_with(name);
             self
         }
 
         /// Sets the default value of this argument if and only if the argument
         /// given is present.
-        fn default_value_if(mut self, value: &'static str, arg_name: &'static str) -> CliArg {
+        pub fn default_value_if(mut self, value: &'static str, arg_name: &'static str) -> CliArg {
             self.claparg = self.claparg.default_value_if(arg_name, None, value);
             self
         }
 
         /// Indicate that any value given to this argument should be a number. If
         /// it's not a number, then clap will report an error to the end user.
-        fn number(mut self) -> CliArg {
+        pub fn number(mut self) -> CliArg {
             self.claparg = self.claparg.validator(|val| {
                 val.parse::<usize>()
                     .map(|_| ())
@@ -910,13 +911,12 @@ pub mod arg {
         }
 
         /// Sets an environment variable default for the argument.
-        fn env(mut self, var_name: &'static str) -> CliArg {
+        pub fn env(mut self, var_name: &'static str) -> CliArg {
             self.claparg = self.claparg.env(var_name);
             self
         }
     }
 
-    #[allow(unused_macros)]
     /// Add an extra space to long descriptions so that a blank line is inserted
     /// between flag descriptions in --help output.
     macro_rules! long {
@@ -929,12 +929,12 @@ pub mod arg {
         const SHORT: &str = "Increase log verbosity printed to console.";
         const LONG: &str = long!(
             "\
-    Increase log verbosity printed to console. Log verbosity increases
-    each time the flag is found.
+Increase log verbosity printed to console. Log verbosity increases
+each time the flag is found.
 
-    For example: -v, -vv, -vvv
+For example: -v, -vv, -vvv
 
-    The quiet flag -q will override this setting and will silence log output."
+The quiet flag -q will override this setting and will silence log output."
         );
 
         let arg = CliArg::switch("verbosity", "v")
@@ -948,9 +948,9 @@ pub mod arg {
         const SHORT: &str = "Quiet debug messages.";
         const LONG: &str = long!(
             "\
-        Quiet debug messages on console. Overrides verbosity (-v) setting.
+Quiet debug messages on console. Overrides verbosity (-v) setting.
 
-        The arguments -vvvq will produce no console debug output."
+The arguments -vvvq will produce no console debug output."
         );
 
         let arg = CliArg::switch("quiet", "q")
@@ -964,9 +964,9 @@ pub mod arg {
         const SHORT: &str = "Plain mode to turn off colors.";
         const LONG: &str = long!(
             "\
-    Plain mode turns off colors. Overrides environment settings
-    that control terminal colors. Color settings in config will
-    have no effect."
+Plain mode turns off colors and overrides environment settings
+that control terminal colors. Color settings in config will
+have no effect."
         );
 
         let arg = CliArg::switch("plain", "p").help(SHORT).long_help(LONG);
@@ -977,9 +977,9 @@ pub mod arg {
         const SHORT: &str = "Preserve line (task) numbers.";
         const LONG: &str = long!(
             "\
-    Preserve line (task) numbers. This allows consistent access of the
-    tasks by the same id each time. When a task is deleted, it will
-    remain blank.
+Preserve line (task) numbers. This allows consistent access of the
+tasks by the same id each time. When a task is deleted, it will
+remain blank.
         "
         );
 
@@ -994,8 +994,8 @@ pub mod arg {
         const SHORT: &str = "Don't preserve line (task) numbers";
         const LONG: &str = long!(
             "\
-    Don't preserve line (task) numbers. Opposite of -N. When a task is
-    deleted, the following tasks will be moved up one line."
+Don't preserve line (task) numbers. Opposite of -N. When a task is
+deleted, the following tasks will be moved up one line."
         );
 
         let arg = CliArg::switch("remove_blank_lines", "n")
@@ -1008,8 +1008,8 @@ pub mod arg {
         const SHORT: &str = "Hide task contexts from output.";
         const LONG: &str = long!(
             "\
-    Hide task contexts from output. Use twice to show contexts, which
-    is the default."
+Hide task contexts from output. Use twice to show contexts, which
+is the default."
         );
 
         let arg = CliArg::switch("hide_context", "@")
@@ -1022,8 +1022,8 @@ pub mod arg {
         const SHORT: &str = "Hide task projects from output.";
         const LONG: &str = long!(
             "\
-    Hide task projects from output. Use twice to show projects, which
-    is the default."
+Hide task projects from output. Use twice to show projects, which
+is the default."
         );
 
         let arg = CliArg::switch("hide_project", "+")
@@ -1036,8 +1036,8 @@ pub mod arg {
         const SHORT: &str = "Hide task priorities from output.";
         const LONG: &str = long!(
             "\
-    Hide task priorities from output. Use twice to show priorities, which
-    is the default."
+Hide task priorities from output. Use twice to show priorities, which
+is the default."
         );
 
         let arg = CliArg::switch("hide_priority", "P")
@@ -1050,8 +1050,8 @@ pub mod arg {
         const SHORT: &str = "Location of config toml file.";
         const LONG: &str = long!(
             "\
-    Location of toml config file. Various options can be set, including 
-    colors and styles."
+Location of toml config file. Various options can be set, including 
+colors and styles."
         );
 
         let arg = CliArg::flag("config", "d", "CONFIG_FILE")
@@ -1061,20 +1061,101 @@ pub mod arg {
         args.push(arg);
     }
 
+    fn command_list(cmds: &mut Vec<App>) {
+        let cmd = SubCommand::with_name("list")
+            .alias("ls")
+            .about("Displays all tasks (optionally filtered by terms)")
+            .arg(
+                Arg::with_name("terms")
+                    .help("Term(s) to filter task list by")
+                    .takes_value(true)
+                    .value_name("TERM")
+                    .multiple(true),
+            );
+        cmds.push(cmd);
+    }
+
+    fn command_add(cmds: &mut Vec<App>) {
+        let cmd = SubCommand::with_name("add")
+            .alias("a")
+            .about("Add task to todo.txt file")
+            .arg(
+                Arg::with_name("task")
+                    .help("Todo item")
+                    .long_help("THING I NEED TO DO +project @context")
+                    .takes_value(true)
+                    .value_name("TASK")
+                    .required(true),
+            );
+        cmds.push(cmd);
+    }
+
+    fn command_addm(cmds: &mut Vec<App>) {
+        let cmd = SubCommand::with_name("addm")
+            .about("Add multiple lines to todo.txt file")
+            .arg(
+                Arg::with_name("tasks")
+                    .help("Todo items (one on each line)")
+                    .long_help(
+                        "\"FIRST THING I NEED TO DO +project1 @context
+SECOND THING I NEED TO DO +project2 @context\"
+
+Adds FIRST THING I NEED TO DO on its own line and SECOND THING I NEED TO DO on its own line.
+Project and context notation optional.",
+                    )
+                    .takes_value(true)
+                    .value_name("TASKS")
+                    .value_delimiter("\n")
+                    .required(true),
+            );
+        cmds.push(cmd);
+    }
+
+    fn command_del(cmds: &mut Vec<App>) {
+        let cmd = SubCommand::with_name("del")
+            .alias("rm")
+            .about("Deletes the task on line ITEM of todo.txt")
+            .long_about("If TERM specified, deletes only TERM from the task")
+            .arg(
+                Arg::with_name("item")
+                    .value_name("ITEM")
+                    .help("Line number of task to delete")
+                    .takes_value(true)
+                    .required(true),
+            )
+            .arg(
+                Arg::with_name("term")
+                    .value_name("TERM")
+                    .help("Optional term to remove from item")
+                    .takes_value(true),
+            );
+        cmds.push(cmd);
+    }
+
     pub fn base_args() -> Vec<CliArg> {
         let mut args = vec![];
         flag_verbosity(&mut args);
         flag_quiet(&mut args);
+        flag_plain(&mut args);
         flag_preserve_line_numbers(&mut args);
         flag_remove_blank_lines(&mut args);
         flag_hide_context(&mut args);
         flag_hide_project(&mut args);
         flag_hide_priority(&mut args);
-
+        flag_config_file(&mut args);
         args
     }
 
-    pub fn app() -> App<'static, 'static> {
+    pub fn commands() -> Vec<App> {
+        let mut cmds = vec![];
+        command_add(&mut cmds);
+        command_addm(&mut cmds);
+        command_list(&mut cmds);
+        command_del(&mut cmds);
+        cmds
+    }
+
+    pub fn base_app() -> App {
         let mut app = App::new(env!("CARGO_PKG_NAME"))
             .about(env!("CARGO_PKG_DESCRIPTION"))
             .version(env!("CARGO_PKG_VERSION"))
@@ -1087,142 +1168,17 @@ pub mod arg {
         for arg in base_args() {
             app = app.arg(arg.claparg);
         }
+
+        // for cmd in commands() {
+        //     app = app.subcommand(cmd);
+        // }
+        app = app.subcommands(commands());
         app
     }
 
     #[allow(clippy::cognitive_complexity)]
     pub fn parse() -> Result<Opt> {
-        let cli = App::new(env!("CARGO_PKG_NAME"))
-            .about(env!("CARGO_PKG_DESCRIPTION"))
-            .version(env!("CARGO_PKG_VERSION"))
-            .author(env!("CARGO_PKG_AUTHORS"))
-            //
-            // settings
-            .setting(AppSettings::DontCollapseArgsInUsage)
-            .setting(AppSettings::VersionlessSubcommands)
-            // .setting(AppSettings::DisableHelpFlags)
-            //
-            // switches
-            .arg(
-                Arg::with_name("verbosity")
-                    .short("v")
-                    .help("Increase log verbosity")
-                    .multiple(true),
-            )
-            .arg(
-                Arg::with_name("quiet")
-                    .short("q")
-                    .help("Quiet debug messages"),
-            )
-            .arg(
-                Arg::with_name("plain")
-                    .short("p")
-                    .help("Plain mode - turn off colors"),
-            )
-            .arg(
-                Arg::with_name("preserve_line_numbers")
-                    .short("N")
-                    .help("Preserve line numbers"),
-            )
-            .arg(
-                Arg::with_name("remove_blank_lines")
-                    .short("n")
-                    .help("Don't preserve line numbers"),
-            )
-            .arg(
-                Arg::with_name("hide_context")
-                    .short("@")
-                    .help("Hide context names from output")
-                    .long_help("Use twice to show context names (default)."),
-            )
-            .arg(
-                Arg::with_name("hide_project")
-                    .short("+")
-                    .help("Hide project names from output")
-                    .long_help("Use twice to show project names (default)."),
-            )
-            .arg(
-                Arg::with_name("hide_priority")
-                    .short("P")
-                    .help("Hide priorities from output")
-                    .long_help("Use twice to show priorities (default)."),
-            )
-            // arguments
-            .arg(
-                Arg::with_name("config")
-                    .short("d")
-                    .value_name("CONFIG_FILE")
-                    .help("Use a config file to set preferences")
-                    .takes_value(true)
-                    .env("TODORS_CFG_FILE"),
-            )
-            //
-            // commands
-            .subcommand(
-                SubCommand::with_name("list")
-                    .alias("ls")
-                    .about("Displays all tasks (optionally filtered by terms)")
-                    .arg(
-                        Arg::with_name("terms")
-                            .help("Term(s) to filter task list by")
-                            .takes_value(true)
-                            .value_name("TERM")
-                            .multiple(true),
-                    ),
-            )
-            .subcommand(
-                SubCommand::with_name("add")
-                    .alias("a")
-                    .about("Add task to todo.txt file")
-                    .arg(
-                        Arg::with_name("task")
-                            .help("Todo item")
-                            .long_help("THING I NEED TO DO +project @context")
-                            .takes_value(true)
-                            .value_name("TASK")
-                            .required(true),
-                    ),
-            )
-            .subcommand(
-                SubCommand::with_name("addm")
-                    .about("Add multiple lines to todo.txt file")
-                    .arg(
-                        Arg::with_name("tasks")
-                            .help("Todo items (one on each line)")
-                            .long_help(
-                                "\"FIRST THING I NEED TO DO +project1 @context
-SECOND THING I NEED TO DO +project2 @context\"
-
-Adds FIRST THING I NEED TO DO on its own line and SECOND THING I NEED TO DO on its own line.
-Project and context notation optional.",
-                            )
-                            .takes_value(true)
-                            .value_name("TASKS")
-                            .value_delimiter("\n")
-                            .required(true),
-                    ),
-            )
-            .subcommand(
-                SubCommand::with_name("del")
-                    .alias("rm")
-                    .about("Deletes the task on line ITEM of todo.txt")
-                    .long_about("If TERM specified, deletes only TERM from the task")
-                    .arg(
-                        Arg::with_name("item")
-                            .value_name("ITEM")
-                            .help("Line number of task to delete")
-                            .takes_value(true)
-                            .required(true),
-                    )
-                    .arg(
-                        Arg::with_name("term")
-                            .value_name("TERM")
-                            .help("Optional term to remove from item")
-                            .takes_value(true),
-                    ),
-            )
-            .get_matches();
-
+        let cli = base_app().get_matches();
         let mut opt = Opt::default();
         // set fields
         opt.hide_context = value_t!(cli, "hide_context", u8).unwrap_or(0);
