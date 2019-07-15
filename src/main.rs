@@ -1,3 +1,6 @@
+// #[macro_use]
+// extern crate lazy_static;
+
 use exitfailure::ExitFailure;
 use log::error;
 use termcolor::{BufferWriter, ColorChoice};

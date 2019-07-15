@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 use args::{Command, Opt};
-// use arg::{Command, Opt};
 use errors::{Error, Result};
-use failure::{err_msg, ResultExt};
+use failure::ResultExt;
 use log::{debug, info, trace};
 use regex::Regex;
 use serde::Deserialize;
 use std::{
     cmp::Ordering,
-    fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
 };
-#[allow(unused_imports)]
 use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, WriteColor};
+// use lazy_static::lazy_static;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 /// Contains parsed task data and original raw string
@@ -28,9 +26,32 @@ struct Task {
 }
 
 impl Task {
+    /// Create new task from string and ID
+    fn new(id: usize, raw_text: &str) -> Self {
+        Task {
+            id,
+            parsed: todo_txt::parser::task(raw_text)
+                .unwrap_or_else(|_| panic!("couldn't parse into todo: '{}'", raw_text)),
+            raw: raw_text.to_string(),
+        }
+    }
+
+    /// Turn into blank task with same id
+    fn clear(&self) -> Self {
+        Task::new(self.id, "")
+    }
+
     /// Returns true if the task is a blank line
     fn is_blank(&self) -> bool {
         self.raw == ""
+    }
+
+    /// Normalize whitespace (condense >1 space to 1) and reparse
+    fn normalize_whitespace(&self) -> Self {
+        Task::new(
+            self.id,
+            &self.raw.split_whitespace().collect::<Vec<&str>>().join(" "),
+        )
     }
 }
 
@@ -87,6 +108,22 @@ fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
     color.set_intense(style.intense.unwrap_or(false));
     color.set_underline(style.underline.unwrap_or(false));
     Ok(color)
+}
+
+/// Convert a slice of tasks to a newline-delimited string
+fn tasks_to_string(tasks: &[Task], ctx: &Context) -> Result<String> {
+    Ok(tasks
+        .iter()
+        .filter(|t| {
+            if ctx.opts.remove_blank_lines {
+                !t.is_blank()
+            } else {
+                true
+            }
+        })
+        .map(|t| t.raw.clone())
+        .collect::<Vec<String>>()
+        .join("\n"))
 }
 
 /// Get string priority name in the form of `pri_x`
@@ -174,16 +211,6 @@ pub fn get_todo_sh_output(
         .output()
         .context("get_todo_sh_output(): error getting command output")
         .map_err(Error::from)
-}
-
-/// Gets path based on default location
-fn get_todo_file_path() -> Result<PathBuf> {
-    let mut path =
-        dirs::home_dir().ok_or_else(|| err_msg("get_todo_file_path(): cannot find home dir"))?;
-    path.push("Dropbox");
-    path.push("todo");
-    path.push("todo.txt");
-    Ok(path)
 }
 
 #[derive(Debug, Deserialize)]
@@ -292,35 +319,12 @@ fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result {
     Ok(())
 }
 
-/// Add task to todo.txt file
-fn add(task: &str) -> Result {
-    info!("Adding {:?}", task);
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(get_todo_file_path()?)?;
-    writeln!(file, "{}", task)?;
-    Ok(())
-}
-
-/// Add multiple tasks to todo.txt file
-fn addm(tasks: &[String]) -> Result {
-    info!("Adding multiple: {:?}", tasks);
-    for task in tasks.iter() {
-        add(task)?;
-    }
-    Ok(())
-}
-
 #[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete word from task
-fn delete(
-    tasks: &mut Vec<Task>,
-    item: usize,
-    term: &Option<String>,
-    ctx: &Context,
-) -> Result<bool> {
+fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<bool> {
     if let Some(t) = term {
         let re = Regex::new(t).unwrap();
+
         for i in 0..tasks.len() {
             let task = &tasks[i];
             if task.id == item {
@@ -332,11 +336,7 @@ fn delete(
                     return Ok(false);
                 }
                 let result = re.replace_all(&task.raw, "");
-                let new = Task {
-                    id:     task.id,
-                    parsed: todo_txt::parser::task(&result).unwrap(),
-                    raw:    result.split_whitespace().collect::<Vec<&str>>().join(" "),
-                };
+                let new = Task::new(task.id, &result).normalize_whitespace();
                 info!("Task after editing: {}", new.raw);
                 println!("TODO: Removed '{}' from task.", t);
                 println!("{} {}", new.id, new.raw);
@@ -351,15 +351,7 @@ fn delete(
             info!("Removing item# {} '{}' at index {}", t.id, t.raw, i);
             if util::ask_user_yes_no(&format!("Delete '{}'?  (y/n)\n", t.raw,))? {
                 let msg = format!("{} {}\nTODO: {} deleted.", &t.id, &t.raw, &t.id);
-                if !ctx.opts.preserve_line_numbers || ctx.opts.remove_blank_lines {
-                    tasks.remove(i);
-                } else {
-                    tasks[i] = Task {
-                        id:     t.id,
-                        parsed: todo_txt::parser::task("").unwrap(),
-                        raw:    "".to_string(),
-                    };
-                }
+                tasks[i] = t.clear();
                 println!("{}", msg);
                 return Ok(true);
             }
@@ -372,23 +364,20 @@ fn delete(
 }
 
 /// Write tasks to file
-fn write_tasks<P>(tasks: &[Task], todo_file_path: P) -> Result
+fn write_buffer<P>(buf: &str, todo_file_path: P, append: bool) -> Result
 where
     P: AsRef<Path>,
     P: std::fmt::Debug,
 {
-    let buf = tasks
-        .iter()
-        .map(|t| t.raw.clone())
-        .collect::<Vec<String>>()
-        .join("\n");
-    let mut file = fs::OpenOptions::new()
+    let mut file = std::fs::OpenOptions::new()
         .write(true)
-        .truncate(true)
+        .truncate(!append)
+        .append(append)
         .open(&todo_file_path)?;
     file.write_all(buf.as_bytes())?;
     file.flush()?;
-    info!("Wrote tasks to file {:?}", todo_file_path);
+    let action = if append { "Appended" } else { "Wrote" };
+    info!("{} tasks to file {:?}", action, todo_file_path);
     Ok(())
 }
 
@@ -399,17 +388,13 @@ where
     P: std::fmt::Debug,
 {
     let todo_file =
-        fs::read_to_string(&todo_file_path).context(format!("file: {:?}", todo_file_path))?;
+        std::fs::read_to_string(&todo_file_path).context(format!("file: {:?}", todo_file_path))?;
     let mut task_ct = 0;
     Ok(todo_file
         .lines()
         .map(|l| {
             task_ct += 1;
-            Task {
-                id:     task_ct,
-                parsed: todo_txt::parser::task(l).expect("couldn't parse string as task"),
-                raw:    l.to_string(),
-            }
+            Task::new(task_ct, l)
         })
         .collect())
 }
@@ -519,45 +504,23 @@ fn list(
     Ok(())
 }
 
-/// Entry point for main program logic
-pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
-    let opts = Opt::from_args();
-
-    if !opts.quiet {
-        logger::init_logger(opts.verbosity);
-    }
-    if opts.plain {
-        std::env::set_var("TERM", "dumb");
-    }
-    info!("Running with args: {:?}", args);
-    let cfg_file = opts
-        .config_file
-        .clone()
-        .or_else(|| get_def_cfg_file_path().ok())
-        .expect("could not find valid cfg file path");
-    let cfg = read_config(cfg_file)?;
-    let ctx = Context {
-        opts,
-        settings: cfg.general,
-        styles: cfg.styles,
-    };
-    debug!("{:#?}", ctx);
-    let todo_file_path = ctx
-        .settings
-        .todo_file
-        .as_ref()
-        .and_then(|s| shellexpand::env(s).ok())
-        .expect("error expanding env vars in todo.txt path");
-    let mut tasks = get_tasks(todo_file_path.as_ref())?;
-
+/// Direct the execution of the program based on the Command in the
+/// Context object
+fn handle_command(ctx: &Context, buf: &mut termcolor::Buffer) -> Result {
+    let todo_file_path = ctx.settings.todo_file.as_ref().unwrap();
+    let mut tasks = get_tasks(&todo_file_path)?;
     match &ctx.opts.cmd {
         Some(command) => match command {
-            Command::Add { task } => add(task)?,
-            Command::Addm { tasks } => addm(tasks)?,
+            Command::Add { task } => {
+                write_buffer(task, &todo_file_path, true)?;
+            }
+            Command::Addm { tasks } => {
+                let ts = tasks.join("\n");
+                write_buffer(&ts, &todo_file_path, false)?;
+            }
             Command::Delete { item, term } => {
-                if delete(&mut tasks, *item, term, &ctx)? {
-                    // TODO: write tasks to file
-                    write_tasks(&tasks, todo_file_path.as_ref())?;
+                if delete(&mut tasks, *item, term)? {
+                    write_buffer(&tasks_to_string(&tasks, &ctx)?, &todo_file_path, false)?;
                     return Ok(());
                 }
                 std::process::exit(1)
@@ -581,16 +544,57 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
             }
         },
     }
-    trace!(
-        "todo.sh output:\n{:?}",
-        std::str::from_utf8(&get_todo_sh_output(None, Some("sort"))?.stdout)?
-    );
-    if !buf.is_empty() {
-        trace!(
-            "Buffer contents:\n{:?}",
-            std::str::from_utf8(buf.as_slice())?
-        );
+    Ok(())
+}
+
+/// Entry point for main program logic
+pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
+    let opts = Opt::from_iter(args);
+
+    if opts.long_help {
+        Opt::clap().print_long_help()?;
+        println!(); // add line ending
+        return Ok(());
     }
+    if !opts.quiet {
+        logger::init_logger(opts.verbosity);
+    }
+    if opts.plain {
+        std::env::set_var("TERM", "dumb");
+    }
+    info!("Running with args: {:?}", args);
+    let cfg_file = opts
+        .config_file
+        .clone()
+        .or_else(|| get_def_cfg_file_path().ok())
+        .expect("could not find valid cfg file path");
+    let cfg = read_config(cfg_file)?;
+    let mut ctx = Context {
+        opts,
+        settings: cfg.general,
+        styles: cfg.styles,
+    };
+    debug!("{:#?}", ctx);
+    let todo_file_path = &ctx
+        .settings
+        .todo_file
+        .as_ref()
+        .and_then(|s| shellexpand::env(s).ok())
+        .expect("couldn't get todo file path")
+        .into_owned();
+    ctx.settings.todo_file = Some(todo_file_path.clone());
+    let ctx = ctx; // make immutable
+    handle_command(&ctx, buf)?;
+    // trace!(
+    //     "todo.sh output:\n{:?}",
+    //     std::str::from_utf8(&get_todo_sh_output(None, Some("sort"))?.stdout)?
+    // );
+    // if !buf.is_empty() {
+    //     trace!(
+    //         "Buffer contents:\n{:?}",
+    //         std::str::from_utf8(buf.as_slice())?
+    //     );
+    // }
     Ok(())
 }
 
@@ -623,12 +627,11 @@ pub mod args {
     /// Command line options
     #[derive(Debug, StructOpt)]
     #[structopt(
-    about = "Command line interface for todo.txt files",
-    // Don't collapse all positionals into [ARGS]
-    raw(setting = "structopt::clap::AppSettings::DontCollapseArgsInUsage"),
-    // Don't print versions for each subcommand
-    raw(setting = "structopt::clap::AppSettings::VersionlessSubcommands")
-)]
+        name = env!("CARGO_PKG_NAME"),
+        about = env!("CARGO_PKG_DESCRIPTION"),
+        setting = structopt::clap::AppSettings::DontCollapseArgsInUsage,
+        setting = structopt::clap::AppSettings::VersionlessSubcommands,
+    )]
     pub struct Opt {
         /// Hide context names in list output.
         ///
@@ -642,13 +645,19 @@ pub mod args {
         #[structopt(short = "+", parse(from_occurrences))]
         pub hide_project: u8,
 
-        /// Don't preserve line numbers
+        /// Print long help message and exit (same as --help).
         ///
-        /// Automatically remove blank lines on task deletion.
+        /// Shorter help message is printed with -h or `help` subcommand.
+        #[structopt(short = "H")]
+        pub long_help: bool,
+
+        /// Don't preserve line numbers.
+        ///
+        /// Automatically remove blank lines during processing.
         #[structopt(short = "n")]
         pub remove_blank_lines: bool,
 
-        /// Preserve line numbers
+        /// Preserve line numbers when deleting tasks.
         ///
         /// Don't remove blank lines on task deletion (default).
         #[structopt(short = "N")]
@@ -660,22 +669,31 @@ pub mod args {
         #[structopt(short = "P", parse(from_occurrences))]
         pub hide_priority: u8,
 
-        /// Plain mode turns off colors
+        /// Plain mode turns off colors on the terminal.
+        ///
+        /// This overrides any color settings in the configuration file.
         #[structopt(short = "p")]
         pub plain: bool,
 
-        /// Increase log verbosity (can be passed multiple times)
+        /// Increase log verbosity (can be passed multiple times).
         ///
-        /// The default verbosity is ERROR. With this flag, it is set to:{n}
-        /// -v = WARN, -vv = INFO, -vvv = DEBUG, -vvvv = TRACE
+        /// The default verbosity is ERROR. With this flag, it is set to:
+        /// {n}-v = WARN, -vv = INFO, -vvv = DEBUG, -vvvv = TRACE
         #[structopt(short = "v", parse(from_occurrences))]
         pub verbosity: u8,
 
-        /// Quiet debug messages
+        /// Quiet debug messages on the console.
+        ///
+        /// This overrides any verbosity (-v) settings and prevents debug
+        /// messages from being shown.
         #[structopt(short = "q")]
         pub quiet: bool,
 
-        /// Use a config file to set preferences
+        /// Use a non-default config file to set preferences.
+        ///
+        /// This file is toml file and will override the default if
+        /// specified on the command line. Otherwise the env var is
+        /// used.
         #[structopt(
             short = "d",
             name = "CONFIG_FILE",
@@ -684,14 +702,13 @@ pub mod args {
         )]
         pub config_file: Option<std::path::PathBuf>,
 
-        /// List contents of todo.txt file
         #[structopt(subcommand)]
         pub cmd: Option<Command>,
     }
 
     #[derive(StructOpt, Debug)]
     pub enum Command {
-        /// Add line to todo.txt file
+        /// Add line to todo.txt file.
         #[structopt(name = "add", visible_alias = "a")]
         Add {
             #[structopt(name = "TASK")]
@@ -701,7 +718,7 @@ pub mod args {
             task: String,
         },
 
-        /// Add multiple lines to todo.txt file
+        /// Add multiple lines to todo.txt file.
         #[structopt(name = "addm")]
         Addm {
             /// Todo item(s)
@@ -715,11 +732,11 @@ pub mod args {
             tasks: Vec<String>,
         },
 
-        /// Add line of text to any file in the todo.txt directory
+        /// Add line of text to any file in the todo.txt directory.
         #[structopt(name = "addto")]
         Addto,
 
-        /// Add text to end of the item
+        /// Add text to end of the item.
         #[structopt(name = "append", visible_alias = "app")]
         Append {
             /// Append text to end of this line number
@@ -731,7 +748,7 @@ pub mod args {
             text: String,
         },
 
-        /// Deletes the task on line ITEM of todo.txt
+        /// Deletes the task on line ITEM of todo.txt.
         ///
         /// If TERM specified, deletes only TERM from the task
         #[structopt(name = "del", visible_alias = "rm")]
@@ -745,7 +762,13 @@ pub mod args {
             term: Option<String>,
         },
 
-        /// Displays all tasks (optionally filtered by terms)
+        /// Displays all tasks that contain TERM(s) sorted by priority with line
+        ///
+        /// Each task must match all TERM(s) (logical AND); to display
+        /// tasks that contain any TERM (logical OR), use
+        /// "TERM1\|TERM2\|..." (with quotes), or TERM1\\|TERM2 (unquoted).
+        /// {n}Hides all tasks that contain TERM(s) preceded by a
+        /// minus sign (i.e. -TERM). If no TERM specified, lists entire todo.txt.
         #[structopt(name = "list", visible_alias = "ls")]
         List {
             /// Term to search for
@@ -753,7 +776,7 @@ pub mod args {
             terms: Vec<String>,
         },
 
-        /// List all todos
+        /// List all todos.
         #[structopt(name = "listall", visible_alias = "lsa")]
         Listall {
             /// Term to search for
@@ -761,7 +784,7 @@ pub mod args {
             terms: Vec<String>,
         },
 
-        /// List all tasks with priorities (optionally filtered)
+        /// List all tasks with priorities (optionally filtered).
         #[structopt(name = "listpri", visible_alias = "lsp")]
         Listpri {
             /// Priorities to search for
