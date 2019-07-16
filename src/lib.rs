@@ -7,12 +7,12 @@ use regex::Regex;
 use serde::Deserialize;
 use std::{
     cmp::Ordering,
+    fmt::{self, Display},
     io::Write,
     path::{Path, PathBuf},
 };
 use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, WriteColor};
-// use lazy_static::lazy_static;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 /// Contains parsed task data and original raw string
@@ -53,6 +53,17 @@ impl Task {
             &self.raw.split_whitespace().collect::<Vec<&str>>().join(" "),
         )
     }
+
+    /// Turn into plain string with properly padded line number
+    #[allow(dead_code)]
+    fn stringify(&self, total_task_ct: usize) -> impl Display {
+        format!(
+            "{:0ct$} {}",
+            self.id,
+            self.raw,
+            ct = total_task_ct.to_string().len(),
+        )
+    }
 }
 
 impl PartialOrd for Task {
@@ -66,6 +77,12 @@ impl Ord for Task {
         self.raw
             .to_ascii_lowercase()
             .cmp(&other.raw.to_ascii_lowercase())
+    }
+}
+
+impl Display for Task {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {}", self.id, self.raw,)
     }
 }
 
@@ -328,7 +345,7 @@ fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<b
         for i in 0..tasks.len() {
             let task = &tasks[i];
             if task.id == item {
-                info!("Removing {:?} from item# {}: {}", t, item, task.raw);
+                info!("Removing {:?} from {}", t, task);
                 println!("{} {}", task.id, task.raw);
                 if !re.is_match(&task.raw) {
                     info!("'{}' not found in task.", t);
@@ -339,7 +356,7 @@ fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<b
                 let new = Task::new(task.id, &result).normalize_whitespace();
                 info!("Task after editing: {}", new.raw);
                 println!("TODO: Removed '{}' from task.", t);
-                println!("{} {}", new.id, new.raw);
+                println!("{}", new);
                 tasks[i] = new;
             }
         }
@@ -348,9 +365,9 @@ fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<b
     for i in 0..tasks.len() {
         let t = &tasks[i];
         if t.id == item {
-            info!("Removing item# {} '{}' at index {}", t.id, t.raw, i);
+            info!("Removing '{}' at index {}", t, i);
             if util::ask_user_yes_no(&format!("Delete '{}'?  (y/n)\n", t.raw,))? {
-                let msg = format!("{} {}\nTODO: {} deleted.", &t.id, &t.raw, &t.id);
+                let msg = format!("{}\nTODO: {} deleted.", t, t.id);
                 tasks[i] = t.clear();
                 println!("{}", msg);
                 return Ok(true);
@@ -506,9 +523,10 @@ fn list(
 
 /// Direct the execution of the program based on the Command in the
 /// Context object
-fn handle_command(ctx: &Context, buf: &mut termcolor::Buffer) -> Result {
+fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
     let todo_file_path = ctx.settings.todo_file.as_ref().unwrap();
     let mut tasks = get_tasks(&todo_file_path)?;
+    ctx.opts.total_task_ct = tasks.len();
     match &ctx.opts.cmd {
         Some(command) => match command {
             Command::Add { task } => {
@@ -583,8 +601,7 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         .expect("couldn't get todo file path")
         .into_owned();
     ctx.settings.todo_file = Some(todo_file_path.clone());
-    let ctx = ctx; // make immutable
-    handle_command(&ctx, buf)?;
+    handle_command(&mut ctx, buf)?;
     // trace!(
     //     "todo.sh output:\n{:?}",
     //     std::str::from_utf8(&get_todo_sh_output(None, Some("sort"))?.stdout)?
@@ -633,6 +650,10 @@ pub mod args {
         setting = structopt::clap::AppSettings::VersionlessSubcommands,
     )]
     pub struct Opt {
+        /// Holds count of tasks for use later in context object
+        #[structopt(skip)]
+        pub total_task_ct: usize,
+
         /// Hide context names in list output.
         ///
         /// Use twice to show context names (default).
