@@ -1,5 +1,8 @@
 #!/usr/bin/env just --justfile
 alias r := run
+alias rr := run-release
+alias b := build
+alias br := build-release
 alias i := install
 alias h := help
 alias t := todors
