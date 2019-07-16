@@ -8,7 +8,8 @@ use serde::Deserialize;
 use std::{
     cmp::Ordering,
     fmt::{self, Display},
-    io::Write,
+    fs::OpenOptions,
+    io::{self, Read, Write},
     path::{Path, PathBuf},
 };
 use structopt::StructOpt;
@@ -381,33 +382,32 @@ fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<b
 }
 
 /// Write tasks to file
-fn write_buffer<P>(buf: &str, todo_file_path: P, append: bool) -> Result
-where
-    P: AsRef<Path>,
-    P: std::fmt::Debug,
-{
-    let mut file = std::fs::OpenOptions::new()
+fn write_buffer<P: AsRef<Path>>(buf: &str, todo_file_path: P, append: bool) -> Result {
+    let mut file = OpenOptions::new()
         .write(true)
         .truncate(!append)
         .append(append)
         .open(&todo_file_path)?;
-    file.write_all(buf.as_bytes())?;
-    file.flush()?;
+    writeln!(file, "{}", buf)?;
     let action = if append { "Appended" } else { "Wrote" };
-    info!("{} tasks to file {:?}", action, todo_file_path);
+    info!("{} tasks to file {:?}", action, todo_file_path.as_ref());
     Ok(())
 }
 
-/// Load todo.txt file and parse into Task objects
-fn get_tasks<P>(todo_file_path: P) -> Result<Vec<Task>>
-where
-    P: AsRef<Path>,
-    P: std::fmt::Debug,
-{
-    let todo_file =
-        std::fs::read_to_string(&todo_file_path).context(format!("file: {:?}", todo_file_path))?;
+/// Load todo.txt file and parse into Task objects.
+/// If the file doesn't exist, create it.
+fn get_tasks<P: AsRef<Path>>(todo_file_path: P) -> Result<Vec<Task>> {
+    let mut todo_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&todo_file_path)
+        .context(format!("file: {:?}", todo_file_path.as_ref()))?;
+    // create string buffer and read file into it
+    let mut buf = String::new();
+    todo_file.read_to_string(&mut buf)?;
     let mut task_ct = 0;
-    Ok(todo_file
+    Ok(buf
         .lines()
         .map(|l| {
             task_ct += 1;
@@ -530,7 +530,14 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
     match &ctx.opts.cmd {
         Some(command) => match command {
             Command::Add { task } => {
-                write_buffer(task, &todo_file_path, true)?;
+                let new = task.clone().unwrap_or_else(|| {
+                    let mut cin = String::new();
+                    io::stdout().write_all(b"Add: ").unwrap();
+                    io::stdout().flush().unwrap();
+                    io::stdin().read_line(&mut cin).unwrap();
+                    cin
+                });
+                write_buffer(&new, &todo_file_path, true)?;
             }
             Command::Addm { tasks } => {
                 let ts = tasks.join("\n");
@@ -736,7 +743,7 @@ pub mod args {
             /// Todo item
             ///
             /// "THING I NEED TO DO +project @context"
-            task: String,
+            task: Option<String>,
         },
 
         /// Add multiple lines to todo.txt file.
