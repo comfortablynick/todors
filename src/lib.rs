@@ -479,13 +479,15 @@ fn sort_tasks(tasks: &mut [Task], sorts: &[SortBy]) {
 }
 
 /// Process new input into tasks
-fn process_input(task: &mut String) -> Result {
+fn process_input(task: String, ctx: &mut Context) -> Result<Task> {
+    let mut task = task;
     if task == "" {
         io::stdout().write_all(b"Add: ").unwrap();
         io::stdout().flush().unwrap();
-        io::stdin().read_line(task).unwrap();
+        io::stdin().read_line(&mut task).unwrap();
     }
-    Ok(())
+    ctx.opts.total_task_ct += 1;
+    Ok(Task::new(ctx.opts.total_task_ct, &task))
 }
 
 /// List tasks from todo.txt file
@@ -534,15 +536,16 @@ fn list(
 /// Direct the execution of the program based on the Command in the
 /// Context object
 fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
-    let todo_file_path = ctx.settings.todo_file.as_ref().unwrap();
+    let todo_file_path = ctx.settings.todo_file.clone().unwrap();
     let mut tasks = get_tasks(&todo_file_path)?;
     ctx.opts.total_task_ct = tasks.len();
     match ctx.opts.cmd.clone() {
         Some(command) => match command {
             Command::Add { task } => {
-                let mut task = task;
-                process_input(&mut task)?;
-                write_buffer(&task, &todo_file_path, true)?;
+                let new = process_input(task, ctx)?;
+                write_buffer(&new.raw, &todo_file_path, true)?;
+                println!("{}", new);
+                println!("TODO: {} added.", new.id);
             }
             Command::Addm { tasks } => {
                 let ts = tasks.join("\n");
