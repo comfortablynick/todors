@@ -388,7 +388,7 @@ fn write_buffer<P: AsRef<Path>>(buf: &str, todo_file_path: P, append: bool) -> R
         .truncate(!append)
         .append(append)
         .open(&todo_file_path)?;
-    writeln!(file, "{}", buf)?;
+    write!(file, "{}", buf)?;
     let action = if append { "Appended" } else { "Wrote" };
     info!("{} tasks to file {:?}", action, todo_file_path.as_ref());
     Ok(())
@@ -478,6 +478,16 @@ fn sort_tasks(tasks: &mut [Task], sorts: &[SortBy]) {
     })
 }
 
+/// Process new input into tasks
+fn process_input(task: &mut String) -> Result {
+    if task == "" {
+        io::stdout().write_all(b"Add: ").unwrap();
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(task).unwrap();
+    }
+    Ok(())
+}
+
 /// List tasks from todo.txt file
 fn list(
     tasks: &mut Vec<Task>,
@@ -527,31 +537,27 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
     let todo_file_path = ctx.settings.todo_file.as_ref().unwrap();
     let mut tasks = get_tasks(&todo_file_path)?;
     ctx.opts.total_task_ct = tasks.len();
-    match &ctx.opts.cmd {
+    match ctx.opts.cmd.clone() {
         Some(command) => match command {
             Command::Add { task } => {
-                let new = task.clone().unwrap_or_else(|| {
-                    let mut cin = String::new();
-                    io::stdout().write_all(b"Add: ").unwrap();
-                    io::stdout().flush().unwrap();
-                    io::stdin().read_line(&mut cin).unwrap();
-                    cin
-                });
-                write_buffer(&new, &todo_file_path, true)?;
+                let mut task = task;
+                process_input(&mut task)?;
+                write_buffer(&task, &todo_file_path, true)?;
             }
             Command::Addm { tasks } => {
                 let ts = tasks.join("\n");
+                // TODO: join ts to existing tasks! Duh!
                 write_buffer(&ts, &todo_file_path, false)?;
             }
             Command::Delete { item, term } => {
-                if delete(&mut tasks, *item, term)? {
+                if delete(&mut tasks, item, &term)? {
                     write_buffer(&tasks_to_string(&tasks, &ctx)?, &todo_file_path, false)?;
                     return Ok(());
                 }
                 std::process::exit(1)
             }
             Command::List { terms } => {
-                list(&mut tasks, terms, buf, &ctx)?;
+                list(&mut tasks, &terms, buf, &*ctx)?;
             }
             Command::Listall { terms } => info!("Listing all {:?}", terms),
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
@@ -734,7 +740,7 @@ pub mod args {
         pub cmd: Option<Command>,
     }
 
-    #[derive(StructOpt, Debug)]
+    #[derive(StructOpt, Debug, Clone)]
     pub enum Command {
         /// Add line to todo.txt file.
         #[structopt(name = "add", visible_alias = "a")]
@@ -743,7 +749,7 @@ pub mod args {
             /// Todo item
             ///
             /// "THING I NEED TO DO +project @context"
-            task: Option<String>,
+            task: String,
         },
 
         /// Add multiple lines to todo.txt file.
