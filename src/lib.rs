@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 use args::{Command, Opt};
+use chrono::Utc;
 use errors::{Error, Result};
 use failure::ResultExt;
 use log::{debug, info, trace};
@@ -382,13 +383,16 @@ fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<b
 }
 
 /// Write tasks to file
-fn write_buffer<P: AsRef<Path>>(buf: &str, todo_file_path: P, append: bool) -> Result {
+fn write_buf_to_file<P: AsRef<Path>>(buf: &str, todo_file_path: P, append: bool) -> Result {
     let mut file = OpenOptions::new()
         .write(true)
         .truncate(!append)
         .append(append)
         .open(&todo_file_path)?;
     write!(file, "{}", buf)?;
+    if append {
+        writeln!(file)?; // Add newline at end
+    }
     let action = if append { "Appended" } else { "Wrote" };
     info!("{} tasks to file {:?}", action, todo_file_path.as_ref());
     Ok(())
@@ -478,18 +482,6 @@ fn sort_tasks(tasks: &mut [Task], sorts: &[SortBy]) {
     })
 }
 
-/// Process new input into tasks
-fn process_input(task: String, ctx: &mut Context) -> Result<Task> {
-    let mut task = task;
-    if task == "" {
-        io::stdout().write_all(b"Add: ").unwrap();
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut task).unwrap();
-    }
-    ctx.opts.total_task_ct += 1;
-    Ok(Task::new(ctx.opts.total_task_ct, &task))
-}
-
 /// List tasks from todo.txt file
 fn list(
     tasks: &mut Vec<Task>,
@@ -533,6 +525,25 @@ fn list(
     Ok(())
 }
 
+/// Create task from raw input. Print confirmation and return to caller.
+fn add(task: String, ctx: &mut Context) -> Result<Task> {
+    let mut task = task;
+    if task == "" {
+        io::stdout().write_all(b"Add: ").unwrap();
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut task).unwrap();
+    }
+    ctx.opts.total_task_ct += 1;
+    if ctx.settings.date_on_add.unwrap_or_default() && !ctx.opts.no_date_on_add {
+        let dt = Utc::today().format("%Y-%m-%d");
+        task = format!("{} {}", dt, task);
+    }
+    let new = Task::new(ctx.opts.total_task_ct, &task);
+    println!("{}", new);
+    println!("TODO: {} added.", new.id);
+    Ok(new)
+}
+
 /// Direct the execution of the program based on the Command in the
 /// Context object
 fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
@@ -542,19 +553,18 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
     match ctx.opts.cmd.clone() {
         Some(command) => match command {
             Command::Add { task } => {
-                let new = process_input(task, ctx)?;
-                write_buffer(&new.raw, &todo_file_path, true)?;
-                println!("{}", new);
-                println!("TODO: {} added.", new.id);
+                let new = add(task, ctx)?;
+                write_buf_to_file(&new.raw, &todo_file_path, true)?;
             }
             Command::Addm { tasks } => {
-                let ts = tasks.join("\n");
-                // TODO: join ts to existing tasks! Duh!
-                write_buffer(&ts, &todo_file_path, false)?;
+                for task in tasks {
+                    let new = add(task, ctx)?;
+                    write_buf_to_file(&new.raw, &todo_file_path, true)?;
+                }
             }
             Command::Delete { item, term } => {
                 if delete(&mut tasks, item, &term)? {
-                    write_buffer(&tasks_to_string(&tasks, &ctx)?, &todo_file_path, false)?;
+                    write_buf_to_file(&tasks_to_string(&tasks, &ctx)?, &todo_file_path, false)?;
                     return Ok(());
                 }
                 std::process::exit(1)
@@ -725,6 +735,15 @@ pub mod args {
         /// messages from being shown.
         #[structopt(short = "q")]
         pub quiet: bool,
+
+        // TODO: figure out how to handle negating flags
+        /// Prepend current date to new task
+        #[structopt(short = "t")]
+        pub date_on_add: bool,
+
+        /// Don't prepend current date to new task
+        #[structopt(short = "T")]
+        pub no_date_on_add: bool,
 
         /// Use a non-default config file to set preferences.
         ///
