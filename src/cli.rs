@@ -1,10 +1,11 @@
-// methods adapted from ripgrep
+//! clap-based cli
+//! Methods adapted from ripgrep
+
 #![allow(dead_code)]
-// use super::errors::Result;
 use crate::errors::Result;
 use clap::{value_t, values_t, AppSettings, SubCommand};
 use log::{debug, log_enabled, trace};
-use std::convert::TryInto;
+use std::{convert::TryInto, path::PathBuf};
 
 /// Command line arguments
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -21,7 +22,7 @@ pub struct Opt {
     pub date_on_add:           bool,
     pub no_date_on_add:        bool,
     pub total_task_ct:         usize,
-    pub config_file:           Option<std::path::PathBuf>,
+    pub config_file:           Option<PathBuf>,
     pub cmd:                   Option<Command>,
 }
 
@@ -65,8 +66,8 @@ pub enum CliArgKind {
     },
     Flag {
         name:            &'static str,
-        long:            Option<&'static str>,
         short:           &'static str,
+        long:            Option<&'static str>,
         value_name:      &'static str,
         multiple:        bool,
         possible_values: Vec<&'static str>,
@@ -89,17 +90,29 @@ impl CliArg {
         }
     }
 
-    /// Create a boolean switch
-    pub fn switch(name: &'static str, short: &'static str) -> CliArg {
+    /// Create a boolean switch. Switches take no values.
+    /// A short name or long name is required.
+    pub fn switch(name: &'static str, short: &'static str, long: Option<&'static str>) -> CliArg {
+        if short == "" && long.is_none() {
+            panic!(
+                "error on switch '{}': either a short or long name must be supplied",
+                name
+            );
+        }
+        let claparg = Arg::with_name(name).short(short);
         CliArg {
-            claparg: Arg::with_name(name).short(short),
+            claparg: if let Some(l) = long {
+                claparg.long(l)
+            } else {
+                claparg
+            },
             name,
             doc_short: "",
             doc_long: "",
             hidden: false,
             kind: CliArgKind::Switch {
                 name,
-                long: None,
+                long,
                 short,
                 multiple: false,
             },
@@ -107,12 +120,31 @@ impl CliArg {
     }
 
     /// Create a flag. A flag always accepts exactly one argument.
-    pub fn flag(name: &'static str, short: &'static str, value_name: &'static str) -> CliArg {
+    /// A short name must be supplied, but it can be blank if a long name only is desired.
+    /// Either a non-blank short name or a long name must be supplied.
+    pub fn flag(
+        name: &'static str,
+        short: &'static str,
+        long: Option<&'static str>,
+        value_name: &'static str,
+    ) -> CliArg {
+        if short == "" && long.is_none() {
+            panic!(
+                "error on flag '{}': either a short or long name must be supplied",
+                name
+            );
+        }
+        let claparg = Arg::with_name(name)
+            .short(short)
+            .value_name(value_name)
+            .takes_value(true)
+            .number_of_values(1);
         CliArg {
-            claparg: Arg::with_name(name)
-                .value_name(value_name)
-                .takes_value(true)
-                .number_of_values(1),
+            claparg: if let Some(l) = long {
+                claparg.long(l)
+            } else {
+                claparg
+            },
             name,
             doc_short: "",
             doc_long: "",
@@ -323,7 +355,7 @@ For example: -v, -vv, -vvv
 The quiet flag -q will override this setting and will silence log output."
     );
 
-    let arg = CliArg::switch("verbosity", "v")
+    let arg = CliArg::switch("verbosity", "v", None)
         .help(SHORT)
         .long_help(LONG)
         .multiple();
@@ -339,7 +371,7 @@ Quiet debug messages on console. Overrides verbosity (-v) setting.
 The arguments -vvvq will produce no console debug output."
     );
 
-    let arg = CliArg::switch("quiet", "q")
+    let arg = CliArg::switch("quiet", "q", None)
         .help(SHORT)
         .long_help(LONG)
         .overrides("verbosity");
@@ -355,7 +387,9 @@ that control terminal colors. Color settings in config will
 have no effect."
     );
 
-    let arg = CliArg::switch("plain", "p").help(SHORT).long_help(LONG);
+    let arg = CliArg::switch("plain", "p", None)
+        .help(SHORT)
+        .long_help(LONG);
     args.push(arg);
 }
 
@@ -369,7 +403,7 @@ remain blank.
         "
     );
 
-    let arg = CliArg::switch("preserve_line_numbers", "N")
+    let arg = CliArg::switch("preserve_line_numbers", "N", None)
         .help(SHORT)
         .long_help(LONG)
         .overrides("remove_blank_lines");
@@ -384,7 +418,7 @@ Don't preserve line (task) numbers. Opposite of -N. When a task is
 deleted, the following tasks will be moved up one line."
     );
 
-    let arg = CliArg::switch("remove_blank_lines", "n")
+    let arg = CliArg::switch("remove_blank_lines", "n", None)
         .help(SHORT)
         .long_help(LONG);
     args.push(arg);
@@ -398,7 +432,7 @@ Hide task contexts from output. Use twice to show contexts, which
 is the default."
     );
 
-    let arg = CliArg::switch("hide_context", "@")
+    let arg = CliArg::switch("hide_context", "@", None)
         .help(SHORT)
         .long_help(LONG);
     args.push(arg);
@@ -412,7 +446,7 @@ Hide task projects from output. Use twice to show projects, which
 is the default."
     );
 
-    let arg = CliArg::switch("hide_project", "+")
+    let arg = CliArg::switch("hide_project", "+", None)
         .help(SHORT)
         .long_help(LONG);
     args.push(arg);
@@ -426,9 +460,29 @@ Hide task priorities from output. Use twice to show priorities, which
 is the default."
     );
 
-    let arg = CliArg::switch("hide_priority", "P")
+    let arg = CliArg::switch("hide_priority", "P", None)
         .help(SHORT)
         .long_help(LONG);
+    args.push(arg);
+}
+
+fn flag_date_on_add(args: &mut Vec<CliArg>) {
+    const SHORT: &str = "Prepend current date to new task";
+    const LONG: &str = long!("Prepend current date to new task");
+    let arg = CliArg::switch("date_on_add", "t", None)
+        .help(SHORT)
+        .long_help(LONG)
+        .overrides("no_date_on_add");
+    args.push(arg);
+}
+
+fn flag_no_date_on_add(args: &mut Vec<CliArg>) {
+    const SHORT: &str = "Don't prepend current date to new task";
+    const LONG: &str = long!("Don't prepend current date to new task");
+    let arg = CliArg::switch("no_date_on_add", "T", None)
+        .help(SHORT)
+        .long_help(LONG)
+        .overrides("date_on_add");
     args.push(arg);
 }
 
@@ -440,7 +494,7 @@ Location of toml config file. Various options can be set, including
 colors and styles."
     );
 
-    let arg = CliArg::flag("config", "d", "CONFIG_FILE")
+    let arg = CliArg::flag("config", "d", None, "CONFIG_FILE")
         .help(SHORT)
         .long_help(LONG)
         .env("TODORS_CFG_FILE");
@@ -528,6 +582,8 @@ pub fn base_args() -> Vec<CliArg> {
     flag_hide_context(&mut args);
     flag_hide_project(&mut args);
     flag_hide_priority(&mut args);
+    flag_date_on_add(&mut args);
+    flag_no_date_on_add(&mut args);
     flag_config_file(&mut args);
     args
 }
@@ -549,7 +605,10 @@ pub fn base_app() -> App {
         //
         // settings
         .setting(AppSettings::DontCollapseArgsInUsage)
-        .setting(AppSettings::VersionlessSubcommands);
+        .setting(AppSettings::VersionlessSubcommands)
+        .setting(AppSettings::DeriveDisplayOrder)
+        .setting(AppSettings::AllArgsOverrideSelf)
+        .setting(AppSettings::UnifiedHelpMessage);
 
     for arg in base_args() {
         app = app.arg(arg.claparg);
@@ -571,6 +630,8 @@ pub fn parse() -> Result<Opt> {
     opt.plain = cli.is_present("plain");
     opt.quiet = cli.is_present("quiet");
     opt.verbosity = cli.occurrences_of("verbosity").try_into().unwrap();
+    opt.date_on_add = cli.is_present("date_on_add");
+    opt.no_date_on_add = cli.is_present("no_date_on_add");
     opt.config_file = value_t!(cli, "config", std::path::PathBuf).ok();
 
     match cli.subcommand() {
