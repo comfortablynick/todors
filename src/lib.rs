@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 // mod args;
+mod app;
 mod cli;
 mod errors;
 mod logger;
