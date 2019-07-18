@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-use args::{Command, Opt};
+// mod args;
+mod cli;
+mod errors;
+mod logger;
+mod util;
+use crate::{
+    cli::{Command, Opt},
+    errors::{Error, Result},
+};
 use chrono::Utc;
-use errors::{Error, Result};
 use failure::ResultExt;
 use log::{debug, info, trace};
 use regex::Regex;
@@ -13,7 +20,7 @@ use std::{
     io::{self, Read, Write},
     path::{Path, PathBuf},
 };
-use structopt::StructOpt;
+// use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -534,7 +541,8 @@ fn add(task: String, ctx: &mut Context) -> Result<Task> {
         io::stdin().read_line(&mut task).unwrap();
     }
     ctx.opts.total_task_ct += 1;
-    if ctx.settings.date_on_add.unwrap_or_default() && !ctx.opts.no_date_on_add {
+    // if ctx.settings.date_on_add.unwrap_or_default() && !ctx.opts.no_date_on_add {
+    if ctx.opts.date_on_add {
         let dt = Utc::today().format("%Y-%m-%d");
         task = format!("{} {}", dt, task);
     }
@@ -593,10 +601,11 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
 
 /// Entry point for main program logic
 pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
-    let opts = Opt::from_iter(args);
+    // let opts = Opt::from_iter(args);
+    let opts = cli::parse()?;
 
     if opts.long_help {
-        Opt::clap().print_long_help()?;
+        // Opt::clap().print_long_help()?;
         println!(); // add line ending
         return Ok(());
     }
@@ -640,294 +649,3 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
     // }
     Ok(())
 }
-
-// util :: helper functions, etc {{{1
-pub mod util {
-    use crate::errors::Result;
-    use log::debug;
-    use std::io::{stdin, stdout, Write};
-
-    /// Get user response to question as 'y' or 'n'
-    pub fn ask_user_yes_no(prompt_ln: &str) -> Result<bool> {
-        let mut cin = String::new();
-        stdout().write_all(prompt_ln.as_bytes())?;
-        stdout().flush()?;
-        stdin().read_line(&mut cin)?;
-        if let Some(c) = cin.to_lowercase().chars().next() {
-            debug!("User input: '{}'", c);
-            if c == 'y' {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-} /* util */
-
-// args :: Build CLI Arguments {{{1
-pub mod args {
-    use structopt::StructOpt;
-
-    /// Command line options
-    #[derive(Debug, StructOpt)]
-    #[structopt(
-        name = env!("CARGO_PKG_NAME"),
-        about = env!("CARGO_PKG_DESCRIPTION"),
-        setting = structopt::clap::AppSettings::DontCollapseArgsInUsage,
-        setting = structopt::clap::AppSettings::VersionlessSubcommands,
-    )]
-    pub struct Opt {
-        /// Holds count of tasks for use later in context object
-        #[structopt(skip)]
-        pub total_task_ct: usize,
-
-        /// Hide context names in list output.
-        ///
-        /// Use twice to show context names (default).
-        #[structopt(short = "@", parse(from_occurrences))]
-        pub hide_context: u8,
-
-        /// Hide project names in list output.
-        ///
-        /// Use twice to show project names (default).
-        #[structopt(short = "+", parse(from_occurrences))]
-        pub hide_project: u8,
-
-        /// Print long help message and exit (same as --help).
-        ///
-        /// Shorter help message is printed with -h or `help` subcommand.
-        #[structopt(short = "H")]
-        pub long_help: bool,
-
-        /// Don't preserve line numbers.
-        ///
-        /// Automatically remove blank lines during processing.
-        #[structopt(short = "n")]
-        pub remove_blank_lines: bool,
-
-        /// Preserve line numbers when deleting tasks.
-        ///
-        /// Don't remove blank lines on task deletion (default).
-        #[structopt(short = "N")]
-        pub preserve_line_numbers: bool,
-
-        /// Hide priority labels in list output.
-        ///
-        /// Use twice to show priority labels (default).
-        #[structopt(short = "P", parse(from_occurrences))]
-        pub hide_priority: u8,
-
-        /// Plain mode turns off colors on the terminal.
-        ///
-        /// This overrides any color settings in the configuration file.
-        #[structopt(short = "p")]
-        pub plain: bool,
-
-        /// Increase log verbosity (can be passed multiple times).
-        ///
-        /// The default verbosity is ERROR. With this flag, it is set to:
-        /// {n}-v = WARN, -vv = INFO, -vvv = DEBUG, -vvvv = TRACE
-        #[structopt(short = "v", parse(from_occurrences))]
-        pub verbosity: u8,
-
-        /// Quiet debug messages on the console.
-        ///
-        /// This overrides any verbosity (-v) settings and prevents debug
-        /// messages from being shown.
-        #[structopt(short = "q")]
-        pub quiet: bool,
-
-        // TODO: figure out how to handle negating flags
-        /// Prepend current date to new task
-        #[structopt(short = "t")]
-        pub date_on_add: bool,
-
-        /// Don't prepend current date to new task
-        #[structopt(short = "T")]
-        pub no_date_on_add: bool,
-
-        /// Use a non-default config file to set preferences.
-        ///
-        /// This file is toml file and will override the default if
-        /// specified on the command line. Otherwise the env var is
-        /// used.
-        #[structopt(
-            short = "d",
-            name = "CONFIG_FILE",
-            env = "TODORS_CFG_FILE",
-            hide_env_values = false
-        )]
-        pub config_file: Option<std::path::PathBuf>,
-
-        #[structopt(subcommand)]
-        pub cmd: Option<Command>,
-    }
-
-    #[derive(StructOpt, Debug, Clone)]
-    pub enum Command {
-        /// Add line to todo.txt file.
-        #[structopt(name = "add", visible_alias = "a")]
-        Add {
-            #[structopt(name = "TASK")]
-            /// Todo item
-            ///
-            /// "THING I NEED TO DO +project @context"
-            task: String,
-        },
-
-        /// Add multiple lines to todo.txt file.
-        #[structopt(name = "addm")]
-        Addm {
-            /// Todo item(s)
-            ///
-            /// "FIRST THING I NEED TO DO +project1 @context{n}
-            /// SECOND THING I NEED TO DO +project2 @context"{n}{n}
-            /// Adds FIRST THING I NEED TO DO to your todo.txt on its own line and{n}
-            /// Adds SECOND THING I NEED TO DO to your todo.txt on its own line.{n}
-            /// Project and context notation optional.
-            #[structopt(name = "TASKS", value_delimiter = "\n")]
-            tasks: Vec<String>,
-        },
-
-        /// Add line of text to any file in the todo.txt directory.
-        #[structopt(name = "addto")]
-        Addto,
-
-        /// Add text to end of the item.
-        #[structopt(name = "append", visible_alias = "app")]
-        Append {
-            /// Append text to end of this line number
-            #[structopt(name = "ITEM")]
-            item: usize,
-
-            /// Text to append (quotes optional)
-            #[structopt(name = "TEXT")]
-            text: String,
-        },
-
-        /// Deletes the task on line ITEM of todo.txt.
-        ///
-        /// If TERM specified, deletes only TERM from the task
-        #[structopt(name = "del", visible_alias = "rm")]
-        Delete {
-            /// Line number of task to delete
-            #[structopt(name = "ITEM")]
-            item: usize,
-
-            /// Optional term to remove from item
-            #[structopt(name = "TERM")]
-            term: Option<String>,
-        },
-
-        /// Displays all tasks that contain TERM(s) sorted by priority with line
-        ///
-        /// Each task must match all TERM(s) (logical AND); to display
-        /// tasks that contain any TERM (logical OR), use
-        /// "TERM1\|TERM2\|..." (with quotes), or TERM1\\|TERM2 (unquoted).
-        /// {n}Hides all tasks that contain TERM(s) preceded by a
-        /// minus sign (i.e. -TERM). If no TERM specified, lists entire todo.txt.
-        #[structopt(name = "list", visible_alias = "ls")]
-        List {
-            /// Term to search for
-            #[structopt(name = "TERM")]
-            terms: Vec<String>,
-        },
-
-        /// List all todos.
-        #[structopt(name = "listall", visible_alias = "lsa")]
-        Listall {
-            /// Term to search for
-            #[structopt(name = "TERM")]
-            terms: Vec<String>,
-        },
-
-        /// List all tasks with priorities (optionally filtered).
-        #[structopt(name = "listpri", visible_alias = "lsp")]
-        Listpri {
-            /// Priorities to search for
-            #[structopt(name = "PRIORITY")]
-            priorities: Vec<String>,
-        },
-    }
-} /* args */
-// logger :: format output of env_logger {{{1
-pub mod logger {
-    use chrono::Local;
-    use env_logger::{fmt::Color, Env};
-    use log::{self, Level};
-    use std::io::Write;
-
-    /// Initialize customized instance of env_logger
-    pub fn init_logger(verbose: u8) {
-        env_logger::Builder::from_env(Env::new().default_filter_or(match verbose {
-            0 => "warn",
-            1 => "info",
-            2 => "debug",
-            _ => "trace",
-        }))
-        .format(|buf, record| {
-            let mut level_style = buf.style();
-            match record.level() {
-                Level::Trace => level_style.set_color(Color::Ansi256(142)), // dim yellow
-                Level::Debug => level_style.set_color(Color::Ansi256(37)),  // dim cyan
-                Level::Info => level_style.set_color(Color::Ansi256(34)),   // dim green
-                Level::Warn => level_style.set_color(Color::Ansi256(130)),  // dim orange
-                Level::Error => level_style.set_color(Color::Red).set_bold(true),
-            };
-
-            let level = level_style.value(format!("{:5}", record.level()));
-            let tm_fmt = "%F %H:%M:%S%.3f";
-            let time = Local::now().format(tm_fmt);
-
-            let mut subtle_style = buf.style();
-            subtle_style.set_color(Color::Black).set_intense(true);
-
-            let mut gray_style = buf.style();
-            gray_style.set_color(Color::Ansi256(250));
-
-            writeln!(
-                buf,
-                "\
-                 {lbracket}\
-                 {time}\
-                 {rbracket}\
-                 {level}\
-                 {lbracket}\
-                 {file}\
-                 {colon}\
-                 {line_no}\
-                 {rbracket} \
-                 {record_args}\
-                 ",
-                lbracket = subtle_style.value("["),
-                rbracket = subtle_style.value("]"),
-                colon = subtle_style.value(":"),
-                file = gray_style.value(record.file().unwrap_or("<unnamed>")),
-                time = gray_style.value(time),
-                level = level,
-                line_no = gray_style.value(record.line().unwrap_or(0)),
-                record_args = &record.args(),
-            )
-        })
-        .init();
-    }
-} /* logger */
-
-// errors :: custom error definitions {{{1
-mod errors {
-    pub use failure::Error;
-    use std::result::Result as StdResult;
-
-    pub type Result<T = ()> = StdResult<T, Error>;
-
-    // #[derive(Debug, Fail)]
-    // pub enum Error {
-    //     #[fail(display = "parse error")]
-    //     ParseError,
-    //     #[fail(display = "error executing command")]
-    //     CommandError(#[cause] std::io::Error),
-    // }
-    //
-    // impl From<std::io::Error> for Error {
-    //
-    // }
-} /* errors */

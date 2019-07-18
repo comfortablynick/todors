@@ -1,4 +1,6 @@
 // methods adapted from ripgrep
+#![allow(dead_code)]
+// use super::errors::Result;
 use crate::errors::Result;
 use clap::{value_t, values_t, AppSettings, SubCommand};
 use log::{debug, log_enabled, trace};
@@ -7,6 +9,7 @@ use std::convert::TryInto;
 /// Command line arguments
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Opt {
+    pub long_help:             bool,
     pub hide_context:          u8,
     pub hide_project:          u8,
     pub remove_blank_lines:    bool,
@@ -15,6 +18,9 @@ pub struct Opt {
     pub plain:                 bool,
     pub verbosity:             u8,
     pub quiet:                 bool,
+    pub date_on_add:           bool,
+    pub no_date_on_add:        bool,
+    pub total_task_ct:         usize,
     pub config_file:           Option<std::path::PathBuf>,
     pub cmd:                   Option<Command>,
 }
