@@ -43,14 +43,7 @@ pub enum Command {
     Listpri { priorities: Vec<String> },
 }
 
-fn tf(args: &mut Vec<Arg>) {
-    let arg = Arg::flag("test", "t", None, "FILE")
-        .hidden(false)
-        .overrides_with("itself");
-    args.push(arg);
-}
-
-fn flag_verbosity(args: &mut Vec<CliArg>) {
+fn flag_verbosity(args: &mut Vec<Arg>) {
     const SHORT: &str = "Increase log verbosity printed to console.";
     const LONG: &str = long!(
         "\
@@ -62,14 +55,18 @@ For example: -v, -vv, -vvv
 The quiet flag -q will override this setting and will silence log output."
     );
 
-    let arg = CliArg::switch("verbosity", "v", None)
+    // let arg = CliArg::switch("verbosity", "v", None)
+    //     .help(SHORT)
+    //     .long_help(LONG)
+    //     .multiple();
+    let arg = Arg::switch("verbosity", "v", None)
         .help(SHORT)
         .long_help(LONG)
-        .multiple();
+        .multiple(true);
     args.push(arg);
 }
 
-fn flag_quiet(args: &mut Vec<CliArg>) {
+fn flag_quiet(args: &mut Vec<Arg>) {
     const SHORT: &str = "Quiet debug messages.";
     const LONG: &str = long!(
         "\
@@ -78,14 +75,14 @@ Quiet debug messages on console. Overrides verbosity (-v) setting.
 The arguments -vvvq will produce no console debug output."
     );
 
-    let arg = CliArg::switch("quiet", "q", None)
+    let arg = Arg::switch("quiet", "q", None)
         .help(SHORT)
         .long_help(LONG)
-        .overrides("verbosity");
+        .overrides_with("verbosity");
     args.push(arg);
 }
 
-fn flag_plain(args: &mut Vec<CliArg>) {
+fn flag_plain(args: &mut Vec<Arg>) {
     const SHORT: &str = "Plain mode to turn off colors.";
     const LONG: &str = long!(
         "\
@@ -94,13 +91,11 @@ that control terminal colors. Color settings in config will
 have no effect."
     );
 
-    let arg = CliArg::switch("plain", "p", None)
-        .help(SHORT)
-        .long_help(LONG);
+    let arg = Arg::switch("plain", "p", None).help(SHORT).long_help(LONG);
     args.push(arg);
 }
 
-fn flag_preserve_line_numbers(args: &mut Vec<CliArg>) {
+fn flag_preserve_line_numbers(args: &mut Vec<Arg>) {
     const SHORT: &str = "Preserve line (task) numbers.";
     const LONG: &str = long!(
         "\
@@ -110,14 +105,14 @@ remain blank.
         "
     );
 
-    let arg = CliArg::switch("preserve_line_numbers", "N", None)
+    let arg = Arg::switch("preserve_line_numbers", "N", None)
         .help(SHORT)
         .long_help(LONG)
-        .overrides("remove_blank_lines");
+        .overrides_with("remove_blank_lines");
     args.push(arg);
 }
 
-fn flag_remove_blank_lines(args: &mut Vec<CliArg>) {
+fn flag_remove_blank_lines(args: &mut Vec<Arg>) {
     const SHORT: &str = "Don't preserve line (task) numbers";
     const LONG: &str = long!(
         "\
@@ -125,13 +120,13 @@ Don't preserve line (task) numbers. Opposite of -N. When a task is
 deleted, the following tasks will be moved up one line."
     );
 
-    let arg = CliArg::switch("remove_blank_lines", "n", None)
+    let arg = Arg::switch("remove_blank_lines", "n", None)
         .help(SHORT)
         .long_help(LONG);
     args.push(arg);
 }
 
-fn flag_hide_context(args: &mut Vec<CliArg>) {
+fn flag_hide_context(args: &mut Vec<Arg>) {
     const SHORT: &str = "Hide task contexts from output.";
     const LONG: &str = long!(
         "\
@@ -139,13 +134,13 @@ Hide task contexts from output. Use twice to show contexts, which
 is the default."
     );
 
-    let arg = CliArg::switch("hide_context", "@", None)
+    let arg = Arg::switch("hide_context", "@", None)
         .help(SHORT)
         .long_help(LONG);
     args.push(arg);
 }
 
-fn flag_hide_project(args: &mut Vec<CliArg>) {
+fn flag_hide_project(args: &mut Vec<Arg>) {
     const SHORT: &str = "Hide task projects from output.";
     const LONG: &str = long!(
         "\
@@ -153,13 +148,13 @@ Hide task projects from output. Use twice to show projects, which
 is the default."
     );
 
-    let arg = CliArg::switch("hide_project", "+", None)
+    let arg = Arg::switch("hide_project", "+", None)
         .help(SHORT)
         .long_help(LONG);
     args.push(arg);
 }
 
-fn flag_hide_priority(args: &mut Vec<CliArg>) {
+fn flag_hide_priority(args: &mut Vec<Arg>) {
     const SHORT: &str = "Hide task priorities from output.";
     const LONG: &str = long!(
         "\
@@ -167,33 +162,33 @@ Hide task priorities from output. Use twice to show priorities, which
 is the default."
     );
 
-    let arg = CliArg::switch("hide_priority", "P", None)
+    let arg = Arg::switch("hide_priority", "P", None)
         .help(SHORT)
         .long_help(LONG);
     args.push(arg);
 }
 
-fn flag_date_on_add(args: &mut Vec<CliArg>) {
+fn flag_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Prepend current date to new task";
     const LONG: &str = long!("Prepend current date to new task");
-    let arg = CliArg::switch("date_on_add", "t", None)
+    let arg = Arg::switch("date_on_add", "t", None)
         .help(SHORT)
         .long_help(LONG)
-        .overrides("no_date_on_add");
+        .overrides_with("no_date_on_add");
     args.push(arg);
 }
 
-fn flag_no_date_on_add(args: &mut Vec<CliArg>) {
+fn flag_no_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Don't prepend current date to new task";
     const LONG: &str = long!("Don't prepend current date to new task");
-    let arg = CliArg::switch("no_date_on_add", "T", None)
+    let arg = Arg::switch("no_date_on_add", "T", None)
         .help(SHORT)
         .long_help(LONG)
-        .overrides("date_on_add");
+        .overrides_with("date_on_add");
     args.push(arg);
 }
 
-fn flag_config_file(args: &mut Vec<CliArg>) {
+fn flag_config_file(args: &mut Vec<Arg>) {
     const SHORT: &str = "Location of config toml file.";
     const LONG: &str = long!(
         "\
@@ -201,7 +196,7 @@ Location of toml config file. Various options can be set, including
 colors and styles."
     );
 
-    let arg = CliArg::flag("config", "d", None, "CONFIG_FILE")
+    let arg = Arg::flag("config", "d", None, "CONFIG_FILE")
         .help(SHORT)
         .long_help(LONG)
         .env("TODORS_CFG_FILE");
@@ -279,7 +274,7 @@ fn command_del(cmds: &mut Vec<App>) {
     cmds.push(cmd);
 }
 
-pub fn base_args() -> Vec<CliArg> {
+pub fn base_args() -> Vec<Arg> {
     let mut args = vec![];
     flag_verbosity(&mut args);
     flag_quiet(&mut args);
@@ -318,7 +313,7 @@ pub fn base_app() -> App {
         .setting(AppSettings::UnifiedHelpMessage);
 
     for arg in base_args() {
-        app = app.arg(arg.claparg);
+        app = app.arg(arg);
     }
     app = app.subcommands(commands());
     app

@@ -309,15 +309,36 @@ macro_rules! long {
 }
 
 pub trait ArgExt {
+    fn switch(name: &'static str, short: &'static str, long: Option<&'static str>) -> Self;
     fn flag(
         name: &'static str,
         short: &'static str,
         long: Option<&'static str>,
         value_name: &'static str,
     ) -> Self;
+    fn positional(name: &'static str, value_name: &'static str) -> Self;
+    fn number(self) -> Self;
 }
 
+/// Helper methods to extend the clap::Arg type.
+/// Trait must be imported to use these methods.
 impl ArgExt for Arg {
+    /// Create a boolean switch. Switches take no values.
+    /// A short name or long name is required.
+    fn switch(name: &'static str, short: &'static str, long: Option<&'static str>) -> Self {
+        if short == "" && long.is_none() {
+            panic!(
+                "error on switch '{}': either a short or long name must be supplied",
+                name
+            );
+        }
+        let arg = Arg::with_name(name).short(short);
+        if let Some(l) = long { arg.long(l) } else { arg }
+    }
+
+    /// Create a flag. A flag always accepts exactly one argument.
+    /// A short name must be supplied, but it can be blank if a long name only is desired.
+    /// Either a non-blank short name or a long name must be supplied.
     fn flag(
         name: &'static str,
         short: &'static str,
@@ -340,6 +361,20 @@ impl ArgExt for Arg {
         } else {
             claparg
         }
-        claparg
+    }
+
+    /// Create a positional argument
+    fn positional(name: &'static str, value_name: &'static str) -> Self {
+        Arg::with_name(name).value_name(value_name)
+    }
+
+    /// Indicate that any value given to this argument should be a number. If
+    /// it's not a number, then clap will report an error to the end user.
+    fn number(self) -> Self {
+        self.validator(|val| {
+            val.parse::<usize>()
+                .map(|_| ())
+                .map_err(|err| err.to_string())
+        })
     }
 }
