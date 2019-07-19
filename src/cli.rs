@@ -3,7 +3,10 @@
 
 #![allow(dead_code)]
 use crate::{app::ArgExt, errors::Result, long};
-use clap::{value_t, values_t, AppSettings, SubCommand};
+use clap::{
+    app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
+    AppSettings, SubCommand,
+};
 use log::{debug, log_enabled, trace};
 use std::{convert::TryInto, path::PathBuf};
 
@@ -328,18 +331,35 @@ pub fn commands() -> Vec<App> {
     cmds
 }
 
-pub fn base_app() -> App {
-    let mut app = App::new(env!("CARGO_PKG_NAME"))
-        .about(env!("CARGO_PKG_DESCRIPTION"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        //
+pub fn build_app() -> App {
+    const TEMPLATE: &str = "\
+{bin} {version}
+{author}
+{about}
+
+USAGE: {usage}
+
+OPTIONS:
+{unified}
+
+ACTIONS:
+{subcommands}";
+
+    // clap is expecting static strings, so we need to trick it with lazy_static
+    lazy_static! {
+        static ref USAGE: String = format!("{} [OPTIONS] [ACTIONS]", env!("CARGO_PKG_NAME"));
+    }
+
+    let mut app = app_from_crate!() // use Cargo.toml fields
         // settings
         .setting(AppSettings::DontCollapseArgsInUsage)
         .setting(AppSettings::VersionlessSubcommands)
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::AllArgsOverrideSelf)
-        .setting(AppSettings::UnifiedHelpMessage);
+        .setting(AppSettings::UnifiedHelpMessage)
+        .usage(USAGE.as_str())
+        .template(TEMPLATE)
+        .max_term_width(100);
 
     for arg in base_args() {
         app = app.arg(arg);
@@ -382,7 +402,7 @@ fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches<'static>>), opt: &mut 
 /// Parse clap matches into Opt object.
 /// The result will now be decoupled from clap, so it isn't needed elsewhere.
 pub fn parse() -> Result<Opt> {
-    let cli = base_app().get_matches();
+    let cli = build_app().get_matches();
     let mut opt = Opt::default();
     // set fields
     opt.hide_context = value_t!(cli, "hide-context", u8).unwrap_or(0);

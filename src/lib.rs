@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-// mod args;
+#[macro_use]
+extern crate lazy_static;
+
 mod app;
 mod cli;
 mod errors;
