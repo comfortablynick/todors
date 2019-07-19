@@ -2,14 +2,13 @@
 //! Methods adapted from ripgrep
 
 #![allow(dead_code)]
-use crate::{
-    app::{ArgExt, *},
-    errors::Result,
-    long,
-};
+use crate::{app::ArgExt, errors::Result, long};
 use clap::{value_t, values_t, AppSettings, SubCommand};
 use log::{debug, log_enabled, trace};
 use std::{convert::TryInto, path::PathBuf};
+
+type Arg = clap::Arg<'static, 'static>;
+type App = clap::App<'static, 'static>;
 
 /// Command line arguments
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -54,16 +53,12 @@ For example: -v, -vv, -vvv
 
 The quiet flag -q will override this setting and will silence log output."
     );
-
-    // let arg = CliArg::switch("verbosity", "v", None)
-    //     .help(SHORT)
-    //     .long_help(LONG)
-    //     .multiple();
-    let arg = Arg::switch("verbosity", "v", None)
-        .help(SHORT)
-        .long_help(LONG)
-        .multiple(true);
-    args.push(arg);
+    args.push(
+        Arg::switch("verbosity", "v")
+            .help(SHORT)
+            .long_help(LONG)
+            .multiple(true),
+    );
 }
 
 fn flag_quiet(args: &mut Vec<Arg>) {
@@ -74,12 +69,12 @@ Quiet debug messages on console. Overrides verbosity (-v) setting.
 
 The arguments -vvvq will produce no console debug output."
     );
-
-    let arg = Arg::switch("quiet", "q", None)
-        .help(SHORT)
-        .long_help(LONG)
-        .overrides_with("verbosity");
-    args.push(arg);
+    args.push(
+        Arg::switch("quiet", "q")
+            .help(SHORT)
+            .long_help(LONG)
+            .overrides_with("verbosity"),
+    );
 }
 
 fn flag_plain(args: &mut Vec<Arg>) {
@@ -90,9 +85,7 @@ Plain mode turns off colors and overrides environment settings
 that control terminal colors. Color settings in config will
 have no effect."
     );
-
-    let arg = Arg::switch("plain", "p", None).help(SHORT).long_help(LONG);
-    args.push(arg);
+    args.push(Arg::switch("plain", "p").help(SHORT).long_help(LONG));
 }
 
 fn flag_preserve_line_numbers(args: &mut Vec<Arg>) {
@@ -104,12 +97,12 @@ tasks by the same id each time. When a task is deleted, it will
 remain blank.
         "
     );
-
-    let arg = Arg::switch("preserve_line_numbers", "N", None)
-        .help(SHORT)
-        .long_help(LONG)
-        .overrides_with("remove_blank_lines");
-    args.push(arg);
+    args.push(
+        Arg::switch("preserve-line-numbers", "N")
+            .help(SHORT)
+            .long_help(LONG)
+            .overrides_with("remove-blank-lines"),
+    );
 }
 
 fn flag_remove_blank_lines(args: &mut Vec<Arg>) {
@@ -119,39 +112,31 @@ fn flag_remove_blank_lines(args: &mut Vec<Arg>) {
 Don't preserve line (task) numbers. Opposite of -N. When a task is
 deleted, the following tasks will be moved up one line."
     );
-
-    let arg = Arg::switch("remove_blank_lines", "n", None)
-        .help(SHORT)
-        .long_help(LONG);
-    args.push(arg);
+    args.push(
+        Arg::switch("remove-blank-lines", "n")
+            .help(SHORT)
+            .long_help(LONG),
+    );
 }
 
 fn flag_hide_context(args: &mut Vec<Arg>) {
     const SHORT: &str = "Hide task contexts from output.";
     const LONG: &str = long!(
         "\
-Hide task contexts from output. Use twice to show contexts, which
-is the default."
+Hide task contexts from output. Use twice to unhide contexts, which
+returns to the default behavior of showing contexts."
     );
-
-    let arg = Arg::switch("hide_context", "@", None)
-        .help(SHORT)
-        .long_help(LONG);
-    args.push(arg);
+    args.push(Arg::switch("hide-context", "@").help(SHORT).long_help(LONG));
 }
 
 fn flag_hide_project(args: &mut Vec<Arg>) {
     const SHORT: &str = "Hide task projects from output.";
     const LONG: &str = long!(
         "\
-Hide task projects from output. Use twice to show projects, which
-is the default."
+Hide task projects from output. Use twice to unhide projects, which
+returns to the default behavior of showing projects."
     );
-
-    let arg = Arg::switch("hide_project", "+", None)
-        .help(SHORT)
-        .long_help(LONG);
-    args.push(arg);
+    args.push(Arg::switch("hide-project", "+").help(SHORT).long_help(LONG));
 }
 
 fn flag_hide_priority(args: &mut Vec<Arg>) {
@@ -159,33 +144,36 @@ fn flag_hide_priority(args: &mut Vec<Arg>) {
     const LONG: &str = long!(
         "\
 Hide task priorities from output. Use twice to show priorities, which
-is the default."
+returns to the default behavior of showing priorities."
     );
 
-    let arg = Arg::switch("hide_priority", "P", None)
-        .help(SHORT)
-        .long_help(LONG);
-    args.push(arg);
+    args.push(
+        Arg::switch("hide-priority", "P")
+            .help(SHORT)
+            .long_help(LONG),
+    );
 }
 
 fn flag_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Prepend current date to new task";
     const LONG: &str = long!("Prepend current date to new task");
-    let arg = Arg::switch("date_on_add", "t", None)
-        .help(SHORT)
-        .long_help(LONG)
-        .overrides_with("no_date_on_add");
-    args.push(arg);
+    args.push(
+        Arg::switch("date-on-add", "t")
+            .help(SHORT)
+            .long_help(LONG)
+            .overrides_with("no-date-on-add"),
+    );
 }
 
 fn flag_no_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Don't prepend current date to new task";
     const LONG: &str = long!("Don't prepend current date to new task");
-    let arg = Arg::switch("no_date_on_add", "T", None)
-        .help(SHORT)
-        .long_help(LONG)
-        .overrides_with("date_on_add");
-    args.push(arg);
+    args.push(
+        Arg::switch("no-date-on-add", "T")
+            .help(SHORT)
+            .long_help(LONG)
+            .overrides_with("date-on-add"),
+    );
 }
 
 fn flag_config_file(args: &mut Vec<Arg>) {
@@ -195,83 +183,124 @@ fn flag_config_file(args: &mut Vec<Arg>) {
 Location of toml config file. Various options can be set, including 
 colors and styles."
     );
-
-    let arg = Arg::flag("config", "d", None, "CONFIG_FILE")
-        .help(SHORT)
-        .long_help(LONG)
-        .env("TODORS_CFG_FILE");
-    args.push(arg);
+    args.push(
+        Arg::flag("config-file", "CONFIG_FILE")
+            .short("d")
+            .help(SHORT)
+            .long_help(LONG)
+            .env("TODORS_CFG_FILE"),
+    );
 }
 
 fn command_list(cmds: &mut Vec<App>) {
+    const ABOUT: &str =
+        "Displays all tasks that contain TERM(s) sorted by priority with line numbers.";
     let cmd = SubCommand::with_name("list")
         .alias("ls")
-        .about("Displays all tasks (optionally filtered by terms)")
-        .arg(
-            Arg::with_name("terms")
-                .help("Term(s) to filter task list by")
-                .takes_value(true)
-                .value_name("TERM")
-                .multiple(true),
-        );
+        .about(ABOUT)
+        .arg(arg_terms());
     cmds.push(cmd);
+
+    // TODO: make sure list filter actually works according to help
+    // local args
+    fn arg_terms() -> Arg {
+        const SHORT: &str = "Term to filter task list by.";
+        const LONG: &str = long!("\
+Term to filter task list by.
+
+Each task must match all TERM(s) (logical AND); to display tasks that contain any TERM (logical OR), use
+\"TERM1\\|TERM2\\|...\" (with quotes), or TERM1|TERM2 (unquoted).
+
+Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
+        Arg::positional("terms", "TERM")
+            .help(SHORT)
+            .long_help(LONG)
+            .multiple(true)
+    }
 }
 
 fn command_add(cmds: &mut Vec<App>) {
-    let cmd = SubCommand::with_name("add")
-        .alias("a")
-        .about("Add task to todo.txt file")
-        .arg(
-            Arg::with_name("task")
-                .help("Todo item")
-                .long_help("THING I NEED TO DO +project @context")
-                .takes_value(true)
-                .value_name("TASK")
-                .required(true),
+    const ABOUT: &str = "Add a line to your todo.txt file.";
+    cmds.push(
+        SubCommand::with_name("add")
+            .alias("a")
+            .about(ABOUT)
+            .arg(arg_task()),
+    );
+
+    // local args
+    fn arg_task() -> Arg {
+        const SHORT: &str = "Todo item";
+        const LONG: &str = long!(
+            "\
+THING I NEED TO DO +project @context
+
+Adds THING I NEED TO DO to your todo.txt file on its own line.
+Project and context notation optional.
+Quotes optional."
         );
-    cmds.push(cmd);
+        Arg::positional("task", "TASK")
+            .help(SHORT)
+            .long_help(LONG)
+            .required(true)
+    }
 }
 
 fn command_addm(cmds: &mut Vec<App>) {
-    let cmd = SubCommand::with_name("addm")
-        .about("Add multiple lines to todo.txt file")
-        .arg(
-            Arg::with_name("tasks")
-                .help("Todo items (one on each line)")
-                .long_help(
-                    "\"FIRST THING I NEED TO DO +project1 @context
+    const ABOUT: &str = "Add multiple lines to todo.txt file";
+    cmds.push(SubCommand::with_name("addm").about(ABOUT).arg(arg_tasks()));
+
+    fn arg_tasks() -> Arg {
+        const SHORT: &str = "Todo items (line separated)";
+        const LONG: &str = long!(
+            "
+\"FIRST THING I NEED TO DO +project1 @context
 SECOND THING I NEED TO DO +project2 @context\"
 
 Adds FIRST THING I NEED TO DO on its own line and SECOND THING I NEED TO DO on its own line.
-Project and context notation optional.",
-                )
-                .takes_value(true)
-                .value_name("TASKS")
-                .value_delimiter("\n")
-                .required(true),
+Project and context notation optional.
+Quotes required."
         );
-    cmds.push(cmd);
+        Arg::positional("tasks", "TASKS")
+            .help(SHORT)
+            .long_help(LONG)
+            .value_delimiter("\n")
+            .required(true)
+    }
 }
 
 fn command_del(cmds: &mut Vec<App>) {
-    let cmd = SubCommand::with_name("del")
-        .alias("rm")
-        .about("Deletes the task on line ITEM of todo.txt")
-        .long_about("If TERM specified, deletes only TERM from the task")
-        .arg(
-            Arg::with_name("item")
-                .value_name("ITEM")
-                .help("Line number of task to delete")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("term")
-                .value_name("TERM")
-                .help("Optional term to remove from item")
-                .takes_value(true),
+    const SHORT: &str = "Deletes the task on line of todo.txt";
+    const LONG: &str = long!(
+        "\
+Deletes the task on line of todo.txt.
+If TERM specified, deletes only TERM from the task"
+    );
+    cmds.push(
+        SubCommand::with_name("del")
+            .alias("rm")
+            .about(SHORT)
+            .long_about(LONG)
+            .args(&[arg_item(), arg_term()]),
+    );
+
+    fn arg_item() -> Arg {
+        const SHORT: &str = "Line number of task to delete";
+        Arg::positional("item", "ITEM").help(SHORT).required(true)
+    }
+
+    fn arg_term() -> Arg {
+        const SHORT: &str = "Optional term to remove from item";
+        const LONG: &str = long!(
+            "\
+Optional term to remove from item.
+
+If TERM is specified, only the TERM is removed from ITEM.
+
+If no TERM is specified, the entire ITEM is deleted."
         );
-    cmds.push(cmd);
+        Arg::positional("term", "TERM").help(SHORT).long_help(LONG)
+    }
 }
 
 pub fn base_args() -> Vec<Arg> {
@@ -319,37 +348,23 @@ pub fn base_app() -> App {
     app
 }
 
-#[allow(clippy::cognitive_complexity)]
-pub fn parse() -> Result<Opt> {
-    let cli = base_app().get_matches();
-    let mut opt = Opt::default();
-    // set fields
-    opt.hide_context = value_t!(cli, "hide_context", u8).unwrap_or(0);
-    opt.hide_project = value_t!(cli, "hide_project", u8).unwrap_or(0);
-    opt.hide_priority = value_t!(cli, "hide_priority", u8).unwrap_or(0);
-    opt.remove_blank_lines = cli.is_present("remove_blank_lines");
-    opt.preserve_line_numbers = cli.is_present("preserve_line_numbers");
-    opt.plain = cli.is_present("plain");
-    opt.quiet = cli.is_present("quiet");
-    opt.verbosity = cli.occurrences_of("verbosity").try_into().unwrap();
-    opt.date_on_add = cli.is_present("date_on_add");
-    opt.no_date_on_add = cli.is_present("no_date_on_add");
-    opt.config_file = value_t!(cli, "config", std::path::PathBuf).ok();
-
-    match cli.subcommand() {
+/// Parse the clap matches into Command.
+/// Will return an error if required arguments are missing or invalid.
+fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches<'static>>), opt: &mut Opt) -> Result {
+    match cmd {
         ("add", Some(arg)) => {
             opt.cmd = Some(Command::Add {
-                task: value_t!(arg.value_of("task"), String).unwrap(),
+                task: value_t!(arg.value_of("task"), String)?,
             });
         }
         ("addm", Some(args)) => {
             opt.cmd = Some(Command::Addm {
-                tasks: values_t!(args.values_of("tasks"), String).unwrap(),
+                tasks: values_t!(args.values_of("tasks"), String)?,
             });
         }
         ("del", Some(args)) => {
             opt.cmd = Some(Command::Delete {
-                item: value_t!(args.value_of("item"), usize).unwrap(),
+                item: value_t!(args.value_of("item"), usize)?,
                 term: value_t!(args.value_of("term"), String).ok(),
             });
         }
@@ -361,6 +376,28 @@ pub fn parse() -> Result<Opt> {
         ("", None) => (),
         _ => unreachable!(),
     }
+    Ok(())
+}
+
+/// Parse clap matches into Opt object.
+/// The result will now be decoupled from clap, so it isn't needed elsewhere.
+pub fn parse() -> Result<Opt> {
+    let cli = base_app().get_matches();
+    let mut opt = Opt::default();
+    // set fields
+    opt.hide_context = value_t!(cli, "hide-context", u8).unwrap_or(0);
+    opt.hide_project = value_t!(cli, "hide-project", u8).unwrap_or(0);
+    opt.hide_priority = value_t!(cli, "hide-priority", u8).unwrap_or(0);
+    opt.remove_blank_lines = cli.is_present("remove-blank-lines");
+    opt.preserve_line_numbers = cli.is_present("preserve-line-numbers");
+    opt.plain = cli.is_present("plain");
+    opt.quiet = cli.is_present("quiet");
+    opt.verbosity = cli.occurrences_of("verbosity").try_into().unwrap();
+    opt.date_on_add = cli.is_present("date-on-add");
+    opt.no_date_on_add = cli.is_present("no-date-on-add");
+    opt.config_file = value_t!(cli, "config-file", std::path::PathBuf).ok();
+
+    handle_subcommand(cli.subcommand(), &mut opt)?;
 
     debug!("{:#?}", opt);
 
