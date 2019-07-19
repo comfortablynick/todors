@@ -2,7 +2,11 @@
 //! Methods adapted from ripgrep
 
 #![allow(dead_code)]
-use crate::{app::*, errors::Result, long};
+use crate::{
+    app::{ArgExt, *},
+    errors::Result,
+    long,
+};
 use clap::{value_t, values_t, AppSettings, SubCommand};
 use log::{debug, log_enabled, trace};
 use std::{convert::TryInto, path::PathBuf};
@@ -37,6 +41,13 @@ pub enum Command {
     List { terms: Vec<String> },
     Listall { terms: Vec<String> },
     Listpri { priorities: Vec<String> },
+}
+
+fn tf(args: &mut Vec<Arg>) {
+    let arg = Arg::flag("test", "t", None, "FILE")
+        .hidden(false)
+        .overrides_with("itself");
+    args.push(arg);
 }
 
 fn flag_verbosity(args: &mut Vec<CliArg>) {

@@ -307,3 +307,39 @@ macro_rules! long {
         concat!($lit, " ")
     };
 }
+
+pub trait ArgExt {
+    fn flag(
+        name: &'static str,
+        short: &'static str,
+        long: Option<&'static str>,
+        value_name: &'static str,
+    ) -> Self;
+}
+
+impl ArgExt for Arg {
+    fn flag(
+        name: &'static str,
+        short: &'static str,
+        long: Option<&'static str>,
+        value_name: &'static str,
+    ) -> Self {
+        if short == "" && long.is_none() {
+            panic!(
+                "error on flag '{}': either a short or long name must be supplied",
+                name
+            );
+        }
+        let claparg = Arg::with_name(name)
+            .short(short)
+            .value_name(value_name)
+            .takes_value(true)
+            .number_of_values(1);
+        if let Some(l) = long {
+            claparg.long(l)
+        } else {
+            claparg
+        }
+        claparg
+    }
+}
