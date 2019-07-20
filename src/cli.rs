@@ -16,7 +16,6 @@ type App = clap::App<'static, 'static>;
 /// Command line arguments
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Opt {
-    pub long_help:             bool,
     pub hide_context:          u8,
     pub hide_project:          u8,
     pub remove_blank_lines:    bool,
@@ -57,7 +56,7 @@ For example: -v, -vv, -vvv
 The quiet flag -q will override this setting and will silence log output."
     );
     args.push(
-        Arg::switch("verbosity", "v")
+        Arg::flag("verbosity", "v")
             .help(SHORT)
             .long_help(LONG)
             .multiple(true),
@@ -73,7 +72,7 @@ Quiet debug messages on console. Overrides verbosity (-v) setting.
 The arguments -vvvq will produce no console debug output."
     );
     args.push(
-        Arg::switch("quiet", "q")
+        Arg::flag("quiet", "q")
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("verbosity"),
@@ -88,7 +87,7 @@ Plain mode turns off colors and overrides environment settings
 that control terminal colors. Color settings in config will
 have no effect."
     );
-    args.push(Arg::switch("plain", "p").help(SHORT).long_help(LONG));
+    args.push(Arg::flag("plain", "p").help(SHORT).long_help(LONG));
 }
 
 fn flag_preserve_line_numbers(args: &mut Vec<Arg>) {
@@ -101,7 +100,7 @@ remain blank.
         "
     );
     args.push(
-        Arg::switch("preserve-line-numbers", "N")
+        Arg::flag("preserve-line-numbers", "N")
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("remove-blank-lines"),
@@ -116,7 +115,7 @@ Don't preserve line (task) numbers. Opposite of -N. When a task is
 deleted, the following tasks will be moved up one line."
     );
     args.push(
-        Arg::switch("remove-blank-lines", "n")
+        Arg::flag("remove-blank-lines", "n")
             .help(SHORT)
             .long_help(LONG),
     );
@@ -129,7 +128,7 @@ fn flag_hide_context(args: &mut Vec<Arg>) {
 Hide task contexts from output. Use twice to unhide contexts, which
 returns to the default behavior of showing contexts."
     );
-    args.push(Arg::switch("hide-context", "@").help(SHORT).long_help(LONG));
+    args.push(Arg::flag("hide-context", "@").help(SHORT).long_help(LONG));
 }
 
 fn flag_hide_project(args: &mut Vec<Arg>) {
@@ -139,7 +138,7 @@ fn flag_hide_project(args: &mut Vec<Arg>) {
 Hide task projects from output. Use twice to unhide projects, which
 returns to the default behavior of showing projects."
     );
-    args.push(Arg::switch("hide-project", "+").help(SHORT).long_help(LONG));
+    args.push(Arg::flag("hide-project", "+").help(SHORT).long_help(LONG));
 }
 
 fn flag_hide_priority(args: &mut Vec<Arg>) {
@@ -150,18 +149,14 @@ Hide task priorities from output. Use twice to show priorities, which
 returns to the default behavior of showing priorities."
     );
 
-    args.push(
-        Arg::switch("hide-priority", "P")
-            .help(SHORT)
-            .long_help(LONG),
-    );
+    args.push(Arg::flag("hide-priority", "P").help(SHORT).long_help(LONG));
 }
 
 fn flag_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Prepend current date to new task";
     const LONG: &str = long!("Prepend current date to new task");
     args.push(
-        Arg::switch("date-on-add", "t")
+        Arg::flag("date-on-add", "t")
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("no-date-on-add"),
@@ -172,14 +167,14 @@ fn flag_no_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Don't prepend current date to new task";
     const LONG: &str = long!("Don't prepend current date to new task");
     args.push(
-        Arg::switch("no-date-on-add", "T")
+        Arg::flag("no-date-on-add", "T")
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("date-on-add"),
     );
 }
 
-fn flag_config_file(args: &mut Vec<Arg>) {
+fn opt_config_file(args: &mut Vec<Arg>) {
     const SHORT: &str = "Location of config toml file.";
     const LONG: &str = long!(
         "\
@@ -187,7 +182,7 @@ Location of toml config file. Various options can be set, including
 colors and styles."
     );
     args.push(
-        Arg::flag("config-file", "CONFIG_FILE")
+        Arg::option("config-file", "CONFIG_FILE")
             .short("d")
             .help(SHORT)
             .long_help(LONG)
@@ -306,7 +301,7 @@ If no TERM is specified, the entire ITEM is deleted."
     }
 }
 
-pub fn base_args() -> Vec<Arg> {
+fn base_args() -> Vec<Arg> {
     let mut args = vec![];
     flag_verbosity(&mut args);
     flag_quiet(&mut args);
@@ -318,11 +313,11 @@ pub fn base_args() -> Vec<Arg> {
     flag_hide_priority(&mut args);
     flag_date_on_add(&mut args);
     flag_no_date_on_add(&mut args);
-    flag_config_file(&mut args);
+    opt_config_file(&mut args);
     args
 }
 
-pub fn commands() -> Vec<App> {
+fn commands() -> Vec<App> {
     let mut cmds = vec![];
     command_add(&mut cmds);
     command_addm(&mut cmds);
@@ -331,7 +326,7 @@ pub fn commands() -> Vec<App> {
     cmds
 }
 
-pub fn build_app() -> App {
+fn build_app() -> App {
     const TEMPLATE: &str = "\
 {bin} {version}
 {author}

@@ -607,11 +607,6 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
     // let opts = Opt::from_iter(args);
     let opts = cli::parse()?;
 
-    if opts.long_help {
-        // Opt::clap().print_long_help()?;
-        println!(); // add line ending
-        return Ok(());
-    }
     if !opts.quiet {
         logger::init_logger(opts.verbosity);
     }
