@@ -44,7 +44,7 @@ pub enum Command {
     Listpri { priorities: Vec<String> },
 }
 
-fn flag_verbosity(args: &mut Vec<Arg>) {
+fn flag_verbose(args: &mut Vec<Arg>) {
     const SHORT: &str = "Increase log verbosity printed to console.";
     const LONG: &str = long!(
         "\
@@ -56,7 +56,7 @@ For example: -v, -vv, -vvv
 The quiet flag -q will override this setting and will silence log output."
     );
     args.push(
-        Arg::flag("verbosity", "v")
+        Arg::flag("verbose", "v")
             .help(SHORT)
             .long_help(LONG)
             .multiple(true),
@@ -216,7 +216,6 @@ Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
             .multiple(true)
     }
 }
-
 fn command_add(cmds: &mut Vec<App>) {
     const ABOUT: &str = "Add a line to your todo.txt file.";
     cmds.push(
@@ -303,7 +302,7 @@ If no TERM is specified, the entire ITEM is deleted."
 
 fn base_args() -> Vec<Arg> {
     let mut args = vec![];
-    flag_verbosity(&mut args);
+    flag_verbose(&mut args);
     flag_quiet(&mut args);
     flag_plain(&mut args);
     flag_preserve_line_numbers(&mut args);
@@ -407,7 +406,7 @@ pub fn parse() -> Result<Opt> {
     opt.preserve_line_numbers = cli.is_present("preserve-line-numbers");
     opt.plain = cli.is_present("plain");
     opt.quiet = cli.is_present("quiet");
-    opt.verbosity = cli.occurrences_of("verbosity").try_into().unwrap();
+    opt.verbosity = cli.occurrences_of("verbose").try_into().unwrap();
     opt.date_on_add = cli.is_present("date-on-add");
     opt.no_date_on_add = cli.is_present("no-date-on-add");
     opt.config_file = value_t!(cli, "config-file", std::path::PathBuf).ok();
