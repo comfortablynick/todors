@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
 #[macro_use]
 extern crate lazy_static;
 
 mod app;
+// mod args;
 mod cli;
 mod errors;
 mod logger;
@@ -140,8 +140,9 @@ fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
 }
 
 /// Convert a slice of tasks to a newline-delimited string
-fn tasks_to_string(tasks: &[Task], ctx: &Context) -> Result<String> {
-    Ok(tasks
+fn tasks_to_string(ctx: &Context) -> Result<String> {
+    Ok(ctx
+        .tasks
         .iter()
         .filter(|t| {
             if ctx.opts.remove_blank_lines {
@@ -168,13 +169,8 @@ fn get_pri_name(pri: u8) -> Option<String> {
 }
 
 /// Format output and add color to priorities, projects and contexts
-fn format_buffer(
-    tasks: &[Task],
-    buf: &mut termcolor::Buffer,
-    ctx: &Context,
-    total_task_ct: usize,
-) -> Result {
-    for task in tasks {
+fn format_buffer(buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
+    for task in &ctx.tasks {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
         let color = if task.parsed.finished {
@@ -188,7 +184,7 @@ fn format_buffer(
             buf,
             "{:0ct$} ",
             &task.id,
-            ct = total_task_ct.to_string().len()
+            ct = ctx.opts.total_task_ct.to_string().len()
         )?;
         let mut words = line.split_whitespace().peekable();
         while let Some(word) = words.next() {
@@ -283,16 +279,19 @@ impl Style {
     }
 }
 
-#[derive(Debug)]
-/// Wrapper that holds all current settings, args, etc.
+#[derive(Debug, Default)]
+/// Wrapper that holds all current settings, args, and data
+/// that needs to be passed around to various functions. It takes
+/// the place of "global" variables.
 struct Context {
     opts:     Opt,
     settings: Settings,
     styles:   Vec<Style>,
+    tasks:    Vec<Task>,
 }
 
 /// General app settings
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 struct Settings {
     todo_file:      Option<String>,
     done_file:      Option<String>,
@@ -336,8 +335,8 @@ where
 }
 
 /// Filter tasks list against terms
-fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result {
-    tasks.retain(|t| {
+fn apply_filter(terms: &[String], ctx: &mut Context) -> Result {
+    ctx.tasks.retain(|t| {
         for term in terms.iter() {
             if !t.raw.contains(term) {
                 return false;
@@ -350,12 +349,12 @@ fn apply_filter(tasks: &mut Vec<Task>, terms: &[String]) -> Result {
 
 #[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete word from task
-fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<bool> {
+fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool> {
     if let Some(t) = term {
         let re = Regex::new(t).unwrap();
 
-        for i in 0..tasks.len() {
-            let task = &tasks[i];
+        for i in 0..ctx.tasks.len() {
+            let task = &ctx.tasks[i];
             if task.id == item {
                 info!("Removing {:?} from {}", t, task);
                 println!("{} {}", task.id, task.raw);
@@ -369,18 +368,18 @@ fn delete(tasks: &mut Vec<Task>, item: usize, term: &Option<String>) -> Result<b
                 info!("Task after editing: {}", new.raw);
                 println!("TODO: Removed '{}' from task.", t);
                 println!("{}", new);
-                tasks[i] = new;
+                ctx.tasks[i] = new;
             }
         }
         return Ok(true);
     }
-    for i in 0..tasks.len() {
-        let t = &tasks[i];
+    for i in 0..ctx.tasks.len() {
+        let t = &ctx.tasks[i];
         if t.id == item {
             info!("Removing '{}' at index {}", t, i);
             if util::ask_user_yes_no(&format!("Delete '{}'?  (y/n)\n", t.raw,))? {
                 let msg = format!("{}\nTODO: {} deleted.", t, t.id);
-                tasks[i] = t.clear();
+                ctx.tasks[i] = t.clear();
                 println!("{}", msg);
                 return Ok(true);
             }
@@ -466,8 +465,8 @@ pub struct SortBy {
 }
 
 /// Sort task list by slice of TaskSort objects
-fn sort_tasks(tasks: &mut [Task], sorts: &[SortBy]) {
-    tasks.sort_by(|a, b| {
+fn sort_tasks(sorts: &[SortBy], ctx: &mut Context) {
+    ctx.tasks.sort_by(|a, b| {
         let mut cmp = Ordering::Equal;
         for sort in sorts {
             if cmp != Ordering::Equal {
@@ -493,43 +492,32 @@ fn sort_tasks(tasks: &mut [Task], sorts: &[SortBy]) {
 }
 
 /// List tasks from todo.txt file
-fn list(
-    tasks: &mut Vec<Task>,
-    terms: &[String],
-    buf: &mut termcolor::Buffer,
-    ctx: &Context,
-) -> Result {
+fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &mut Context) -> Result {
     sort_tasks(
-        tasks,
         &[SortBy {
             field:   SortByField::Id,
             reverse: false,
         }],
+        ctx,
     );
-    // use for formatting line# column
-    let total_task_ct = tasks.len();
     // remove blank rows
-    tasks.retain(|t| !t.is_blank());
+    ctx.tasks.retain(|t| !t.is_blank());
     // use for 'n of m tasks shown' message (not including blanks)
-    let prefilter_len = tasks.len();
+    let prefilter_len = ctx.tasks.len();
     // filter based on terms
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
-        apply_filter(tasks, terms)?;
+        apply_filter(terms, ctx)?;
     } else {
         info!("Listing without filter");
     }
-
-    trace!("Parsed tasks:\n{:#?}", tasks);
-
     // fill buffer with formatted (colored) output
-    format_buffer(&tasks, buf, &ctx, total_task_ct)?;
-
+    format_buffer(buf, &ctx)?;
     // write footer
     write!(
         buf,
         "--\nTODO: {} of {} tasks shown\n",
-        tasks.len(),
+        ctx.tasks.len(),
         prefilter_len,
     )?;
     Ok(())
@@ -559,8 +547,12 @@ fn add(task: String, ctx: &mut Context) -> Result<Task> {
 /// Context object
 fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
     let todo_file_path = ctx.settings.todo_file.clone().unwrap();
-    let mut tasks = get_tasks(&todo_file_path)?;
-    ctx.opts.total_task_ct = tasks.len();
+    ctx.tasks = get_tasks(&todo_file_path)?;
+    ctx.opts.total_task_ct = ctx.tasks.len();
+    debug!("{:#?}", ctx.opts);
+    debug!("{:#?}", ctx.settings);
+    trace!("{:#?}", ctx.styles);
+    trace!("{:#?}", ctx.tasks);
     match ctx.opts.cmd.clone() {
         Some(command) => match command {
             Command::Add { task } => {
@@ -574,14 +566,14 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
                 }
             }
             Command::Delete { item, term } => {
-                if delete(&mut tasks, item, &term)? {
-                    write_buf_to_file(&tasks_to_string(&tasks, &ctx)?, &todo_file_path, false)?;
+                if delete(item, &term, ctx)? {
+                    write_buf_to_file(&tasks_to_string(&ctx)?, &todo_file_path, false)?;
                     return Ok(());
                 }
                 std::process::exit(1)
             }
             Command::List { terms } => {
-                list(&mut tasks, &terms, buf, &*ctx)?;
+                list(&terms, buf, ctx)?;
             }
             Command::Listall { terms } => info!("Listing all {:?}", terms),
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
@@ -590,12 +582,12 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
         },
         None => match &ctx.settings.default_action {
             Some(cmd) => match cmd.as_str() {
-                "ls" | "list" => list(&mut tasks, &[], buf, &ctx)?,
+                "ls" | "list" => list(&[], buf, ctx)?,
                 _ => panic!("Unknown command: {:?}", cmd),
             },
             None => {
                 info!("No command supplied; defaulting to List");
-                list(&mut tasks, &[], buf, &ctx)?;
+                list(&[], buf, ctx)?;
             }
         },
     }
@@ -624,8 +616,8 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         opts,
         settings: cfg.general,
         styles: cfg.styles,
+        ..Default::default()
     };
-    debug!("{:#?}", ctx);
     let todo_file_path = &ctx
         .settings
         .todo_file

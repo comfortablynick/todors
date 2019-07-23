@@ -1,7 +1,6 @@
 //! clap-based cli
 //! Methods adapted from ripgrep
 
-#![allow(dead_code)]
 use crate::{app::ArgExt, errors::Result, long};
 use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
@@ -32,6 +31,7 @@ pub struct Opt {
 }
 
 /// Subcommands
+#[allow(dead_code)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Command {
     Add { task: String },
