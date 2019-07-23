@@ -13,7 +13,7 @@ use crate::{
     errors::{Error, Result},
 };
 use chrono::Utc;
-use failure::ResultExt;
+use failure::{err_msg, ResultExt};
 use log::{debug, info, trace};
 use regex::Regex;
 use serde::Deserialize;
@@ -195,23 +195,10 @@ fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
 
 /// Convert a slice of tasks to a newline-delimited string
 fn tasks_to_string(ctx: &mut Context) -> Result<String> {
-    // Ok(ctx
-    //     .tasks
-    //     .iter()
-    //     .filter(|t| {
-    //         if ctx.opts.remove_blank_lines {
-    //             !t.is_blank()
-    //         } else {
-    //             true
-    //         }
-    //     })
-    //     .map(|t| t.raw.clone())
-    //     .collect::<Vec<String>>()
-    //     .join("\n"))
     if ctx.opts.remove_blank_lines {
         ctx.tasks.retain(|t| !t.is_blank());
     }
-    Ok(format!("{}", ctx.tasks))
+    Ok(ctx.tasks.to_string())
 }
 
 /// Get string priority name in the form of `pri_x`
@@ -339,10 +326,13 @@ impl Style {
 /// that needs to be passed around to various functions. It takes
 /// the place of "global" variables.
 struct Context {
-    opts:     Opt,
-    settings: Settings,
-    styles:   Vec<Style>,
-    tasks:    Tasks,
+    opts:        Opt,
+    settings:    Settings,
+    styles:      Vec<Style>,
+    tasks:       Tasks,
+    todo_file:   PathBuf,
+    done_file:   PathBuf,
+    report_file: PathBuf,
 }
 
 /// General app settings
@@ -602,51 +592,54 @@ fn add(task: String, ctx: &mut Context) -> Result<Task> {
 /// Direct the execution of the program based on the Command in the
 /// Context object
 fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
-    let todo_file_path = &ctx
+    ctx.todo_file = ctx
         .settings
         .todo_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
-        .expect("couldn't get todo file path")
-        .into_owned();
-    let done_file_path = &ctx
+        .map(|s| PathBuf::from(s.into_owned()))
+        .ok_or_else(|| err_msg("could not get todo file"))?;
+    ctx.done_file = ctx
         .settings
         .done_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
-        .expect("couldn't get done file path")
-        .into_owned();
-    let report_file_path = &ctx
+        .map(|s| PathBuf::from(s.into_owned()))
+        .ok_or_else(|| err_msg("could not get todo file"))?;
+    ctx.report_file = ctx
         .settings
-        .done_file
+        .report_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
-        .expect("couldn't get done file path")
-        .into_owned();
-    ctx.settings.todo_file = Some(todo_file_path.clone());
-    ctx.settings.done_file = Some(done_file_path.clone());
-    ctx.settings.report_file = Some(report_file_path.clone());
-    ctx.tasks = get_tasks(&todo_file_path)?;
+        .map(|s| PathBuf::from(s.into_owned()))
+        .ok_or_else(|| err_msg("could not get todo file"))?;
+    ctx.tasks = get_tasks(&ctx.todo_file)?;
     ctx.opts.total_task_ct = ctx.tasks.len();
+
+    // Debug print of all settings
     debug!("{:#?}", ctx.opts);
     debug!("{:#?}", ctx.settings);
+    debug!("Todo file: {:?}", ctx.todo_file);
+    debug!("Done file: {:?}", ctx.done_file);
+    debug!("Rept file: {:?}", ctx.report_file);
     trace!("{:#?}", ctx.styles);
     trace!("{:#?}", ctx.tasks);
+
     match ctx.opts.cmd.clone() {
         Some(command) => match command {
             Command::Add { task } => {
                 let new = add(task, ctx)?;
-                write_buf_to_file(&new.raw, &todo_file_path, true)?;
+                write_buf_to_file(&new.raw, &ctx.todo_file, true)?;
             }
             Command::Addm { tasks } => {
                 for task in tasks {
                     let new = add(task, ctx)?;
-                    write_buf_to_file(&new.raw, &todo_file_path, true)?;
+                    write_buf_to_file(&new.raw, &ctx.todo_file, true)?;
                 }
             }
             Command::Delete { item, term } => {
                 if delete(item, &term, ctx)? {
-                    write_buf_to_file(&tasks_to_string(ctx)?, &todo_file_path, false)?;
+                    write_buf_to_file(&tasks_to_string(ctx)?, &ctx.todo_file, false)?;
                     return Ok(());
                 }
                 exit(1)
