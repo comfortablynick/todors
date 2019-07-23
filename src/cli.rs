@@ -395,8 +395,12 @@ fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches<'static>>), opt: &mut 
 
 /// Parse clap matches into Opt object.
 /// The result will now be decoupled from clap, so it isn't needed elsewhere.
-pub fn parse() -> Result<Opt> {
-    let cli = build_app().get_matches();
+pub fn parse<I>(arg_iter: I) -> Result<Opt>
+where
+    I: IntoIterator,
+    I::Item: Into<std::ffi::OsString> + Clone,
+{
+    let cli = build_app().get_matches_from(arg_iter);
     let mut opt = Opt::default();
     // set fields
     opt.hide_context = value_t!(cli, "hide-context", u8).unwrap_or(0);

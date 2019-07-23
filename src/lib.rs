@@ -1,14 +1,13 @@
-// #![feature(drain_filter)]
 #[macro_use]
 extern crate lazy_static;
 
-mod app;
 // mod args;
+// use structopt::StructOpt;
+mod app;
 mod cli;
 mod errors;
 mod logger;
 mod util;
-// use structopt::StructOpt;
 use crate::{
     cli::{Command, Opt},
     errors::{Error, Result},
@@ -51,7 +50,6 @@ impl IntoIterator for Tasks {
 
 #[allow(dead_code)]
 impl Tasks {
-    #[inline]
     /// Add a new Task to Tasks collection
     pub fn add(mut self, new_task: Task) -> Self {
         self.0.push(new_task);
@@ -68,13 +66,11 @@ impl Tasks {
         self
     }
 
-    #[inline]
     /// Returns the number of elements in the slice
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    #[inline]
     /// Retain based on closure
     pub fn retain<F>(&mut self, mut f: F)
     where
@@ -606,7 +602,14 @@ fn add(task: String, ctx: &mut Context) -> Result<Task> {
 /// Direct the execution of the program based on the Command in the
 /// Context object
 fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
-    let todo_file_path = ctx.settings.todo_file.clone().unwrap();
+    let todo_file_path = &ctx
+        .settings
+        .todo_file
+        .as_ref()
+        .and_then(|s| shellexpand::env(s).ok())
+        .expect("couldn't get todo file path")
+        .into_owned();
+    ctx.settings.todo_file = Some(todo_file_path.clone());
     ctx.tasks = get_tasks(&todo_file_path)?;
     ctx.opts.total_task_ct = ctx.tasks.len();
     debug!("{:#?}", ctx.opts);
@@ -657,7 +660,7 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
 /// Entry point for main program logic
 pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
     // let opts = Opt::from_iter(args);
-    let opts = cli::parse()?;
+    let opts = cli::parse(args)?;
 
     if !opts.quiet {
         logger::init_logger(opts.verbosity);
@@ -678,14 +681,6 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
         styles: cfg.styles,
         ..Default::default()
     };
-    let todo_file_path = &ctx
-        .settings
-        .todo_file
-        .as_ref()
-        .and_then(|s| shellexpand::env(s).ok())
-        .expect("couldn't get todo file path")
-        .into_owned();
-    ctx.settings.todo_file = Some(todo_file_path.clone());
     handle_command(&mut ctx, buf)?;
     // trace!(
     //     "todo.sh output:\n{:?}",
