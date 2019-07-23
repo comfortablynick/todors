@@ -609,7 +609,23 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
         .and_then(|s| shellexpand::env(s).ok())
         .expect("couldn't get todo file path")
         .into_owned();
+    let done_file_path = &ctx
+        .settings
+        .done_file
+        .as_ref()
+        .and_then(|s| shellexpand::env(s).ok())
+        .expect("couldn't get done file path")
+        .into_owned();
+    let report_file_path = &ctx
+        .settings
+        .done_file
+        .as_ref()
+        .and_then(|s| shellexpand::env(s).ok())
+        .expect("couldn't get done file path")
+        .into_owned();
     ctx.settings.todo_file = Some(todo_file_path.clone());
+    ctx.settings.done_file = Some(done_file_path.clone());
+    ctx.settings.report_file = Some(report_file_path.clone());
     ctx.tasks = get_tasks(&todo_file_path)?;
     ctx.opts.total_task_ct = ctx.tasks.len();
     debug!("{:#?}", ctx.opts);
