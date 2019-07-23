@@ -1,3 +1,4 @@
+// #![feature(drain_filter)]
 #[macro_use]
 extern crate lazy_static;
 
@@ -7,6 +8,7 @@ mod cli;
 mod errors;
 mod logger;
 mod util;
+// use structopt::StructOpt;
 use crate::{
     cli::{Command, Opt},
     errors::{Error, Result},
@@ -22,9 +24,65 @@ use std::{
     fs::OpenOptions,
     io::{self, Read, Write},
     path::{Path, PathBuf},
+    process::{exit, Command as ExtCommand, Output},
 };
-// use structopt::StructOpt;
 use termcolor::{Color, ColorSpec, WriteColor};
+
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
+struct Tasks(Vec<Task>);
+
+impl Display for Tasks {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for t in &self.0 {
+            writeln!(f, "{}", t)?;
+        }
+        Ok(())
+    }
+}
+
+impl IntoIterator for Tasks {
+    type IntoIter = ::std::vec::IntoIter<Self::Item>;
+    type Item = Task;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+#[allow(dead_code)]
+impl Tasks {
+    #[inline]
+    /// Add a new Task to Tasks collection
+    pub fn add(mut self, new_task: Task) -> Self {
+        self.0.push(new_task);
+        self
+    }
+
+    /// Remove Task by id
+    pub fn remove_by_id(&mut self, id: usize) -> &Self {
+        for i in 0..self.0.len() {
+            if self.0[i].id == id {
+                self.0[i] = Task::new(id, "");
+            }
+        }
+        self
+    }
+
+    #[inline]
+    /// Returns the number of elements in the slice
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[inline]
+    /// Retain based on closure
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&Task) -> bool,
+    {
+        self.0.retain(|x| f(x));
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 /// Contains parsed task data and original raw string
@@ -140,20 +198,24 @@ fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
 }
 
 /// Convert a slice of tasks to a newline-delimited string
-fn tasks_to_string(ctx: &Context) -> Result<String> {
-    Ok(ctx
-        .tasks
-        .iter()
-        .filter(|t| {
-            if ctx.opts.remove_blank_lines {
-                !t.is_blank()
-            } else {
-                true
-            }
-        })
-        .map(|t| t.raw.clone())
-        .collect::<Vec<String>>()
-        .join("\n"))
+fn tasks_to_string(ctx: &mut Context) -> Result<String> {
+    // Ok(ctx
+    //     .tasks
+    //     .iter()
+    //     .filter(|t| {
+    //         if ctx.opts.remove_blank_lines {
+    //             !t.is_blank()
+    //         } else {
+    //             true
+    //         }
+    //     })
+    //     .map(|t| t.raw.clone())
+    //     .collect::<Vec<String>>()
+    //     .join("\n"))
+    if ctx.opts.remove_blank_lines {
+        ctx.tasks.retain(|t| !t.is_blank());
+    }
+    Ok(format!("{}", ctx.tasks))
 }
 
 /// Get string priority name in the form of `pri_x`
@@ -170,7 +232,7 @@ fn get_pri_name(pri: u8) -> Option<String> {
 
 /// Format output and add color to priorities, projects and contexts
 fn format_buffer(buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
-    for task in &ctx.tasks {
+    for task in &ctx.tasks.0 {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
         let color = if task.parsed.finished {
@@ -224,13 +286,10 @@ fn format_buffer(buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
 }
 
 /// Get output of todo.sh `list` command
-pub fn get_todo_sh_output(
-    argv: Option<&[&str]>,
-    sort_cmd: Option<&str>,
-) -> Result<std::process::Output> {
+pub fn get_todo_sh_output(argv: Option<&[&str]>, sort_cmd: Option<&str>) -> Result<Output> {
     let sort_cmd = sort_cmd.unwrap_or("sort -f -k 2");
     debug!("TODOTXT_SORT_COMMAND={}", sort_cmd);
-    std::process::Command::new("todo.sh")
+    ExtCommand::new("todo.sh")
         .args(argv.unwrap_or_default())
         .env("TODOTXT_SORT_COMMAND", sort_cmd)
         .output()
@@ -287,7 +346,7 @@ struct Context {
     opts:     Opt,
     settings: Settings,
     styles:   Vec<Style>,
-    tasks:    Vec<Task>,
+    tasks:    Tasks,
 }
 
 /// General app settings
@@ -354,7 +413,7 @@ fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool>
         let re = Regex::new(t).unwrap();
 
         for i in 0..ctx.tasks.len() {
-            let task = &ctx.tasks[i];
+            let task = &ctx.tasks.0[i];
             if task.id == item {
                 info!("Removing {:?} from {}", t, task);
                 println!("{} {}", task.id, task.raw);
@@ -368,18 +427,18 @@ fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool>
                 info!("Task after editing: {}", new.raw);
                 println!("TODO: Removed '{}' from task.", t);
                 println!("{}", new);
-                ctx.tasks[i] = new;
+                ctx.tasks.0[i] = new;
             }
         }
         return Ok(true);
     }
     for i in 0..ctx.tasks.len() {
-        let t = &ctx.tasks[i];
+        let t = &ctx.tasks.0[i];
         if t.id == item {
             info!("Removing '{}' at index {}", t, i);
             if util::ask_user_yes_no(&format!("Delete '{}'?  (y/n)\n", t.raw,))? {
                 let msg = format!("{}\nTODO: {} deleted.", t, t.id);
-                ctx.tasks[i] = t.clear();
+                ctx.tasks.0[i] = t.clear();
                 println!("{}", msg);
                 return Ok(true);
             }
@@ -409,7 +468,7 @@ fn write_buf_to_file<P: AsRef<Path>>(buf: &str, todo_file_path: P, append: bool)
 
 /// Load todo.txt file and parse into Task objects.
 /// If the file doesn't exist, create it.
-fn get_tasks<P: AsRef<Path>>(todo_file_path: P) -> Result<Vec<Task>> {
+fn get_tasks<P: AsRef<Path>>(todo_file_path: P) -> Result<Tasks> {
     let mut todo_file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -420,13 +479,14 @@ fn get_tasks<P: AsRef<Path>>(todo_file_path: P) -> Result<Vec<Task>> {
     let mut buf = String::new();
     todo_file.read_to_string(&mut buf)?;
     let mut task_ct = 0;
-    Ok(buf
-        .lines()
-        .map(|l| {
-            task_ct += 1;
-            Task::new(task_ct, l)
-        })
-        .collect())
+    Ok(Tasks(
+        buf.lines()
+            .map(|l| {
+                task_ct += 1;
+                Task::new(task_ct, l)
+            })
+            .collect(),
+    ))
 }
 
 /// Fields of `Task` we can sort by
@@ -466,7 +526,7 @@ pub struct SortBy {
 
 /// Sort task list by slice of TaskSort objects
 fn sort_tasks(sorts: &[SortBy], ctx: &mut Context) {
-    ctx.tasks.sort_by(|a, b| {
+    ctx.tasks.0.sort_by(|a, b| {
         let mut cmp = Ordering::Equal;
         for sort in sorts {
             if cmp != Ordering::Equal {
@@ -567,10 +627,10 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
             }
             Command::Delete { item, term } => {
                 if delete(item, &term, ctx)? {
-                    write_buf_to_file(&tasks_to_string(&ctx)?, &todo_file_path, false)?;
+                    write_buf_to_file(&tasks_to_string(ctx)?, &todo_file_path, false)?;
                     return Ok(());
                 }
-                std::process::exit(1)
+                exit(1)
             }
             Command::List { terms } => {
                 list(&terms, buf, ctx)?;
