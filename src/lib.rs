@@ -78,6 +78,47 @@ impl Tasks {
     {
         self.0.retain(|x| f(x));
     }
+
+    /// Filter tasks list against terms
+    fn filter_terms(&mut self, terms: &[String]) {
+        self.0.retain(|t| {
+            for term in terms.iter() {
+                if !t.raw.contains(term) {
+                    return false;
+                }
+            }
+            true
+        });
+    }
+
+    /// Sort task list by slice of TaskSort objects
+    fn sort(&mut self, sorts: &[SortBy]) {
+        self.0.sort_by(|a, b| {
+            let mut cmp = Ordering::Equal;
+            for sort in sorts {
+                if cmp != Ordering::Equal {
+                    break;
+                }
+                cmp = match sort.field {
+                    SortByField::CompleteDate => a.parsed.finish_date.cmp(&b.parsed.finish_date),
+                    SortByField::Completed => a.parsed.finished.cmp(&b.parsed.finished),
+                    SortByField::Context => a.parsed.contexts.get(0).cmp(&b.parsed.contexts.get(0)),
+                    SortByField::CreateDate => a.parsed.create_date.cmp(&b.parsed.create_date),
+                    SortByField::DueDate => a.parsed.due_date.cmp(&b.parsed.due_date),
+                    SortByField::Id => a.id.cmp(&b.id),
+                    SortByField::Priority => a.parsed.priority.cmp(&b.parsed.priority),
+                    SortByField::Project => a.parsed.projects.get(0).cmp(&b.parsed.projects.get(0)),
+                    SortByField::Body => a.parsed.subject.cmp(&b.parsed.subject),
+                    SortByField::Raw => a.raw.cmp(&b.raw),
+                    SortByField::ThresholdDate => {
+                        a.parsed.threshold_date.cmp(&b.parsed.threshold_date)
+                    }
+                };
+                cmp = if sort.reverse { cmp.reverse() } else { cmp };
+            }
+            cmp
+        })
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -384,19 +425,6 @@ where
         .map_err(Error::from)
 }
 
-/// Filter tasks list against terms
-fn apply_filter(terms: &[String], ctx: &mut Context) -> Result {
-    ctx.tasks.retain(|t| {
-        for term in terms.iter() {
-            if !t.raw.contains(term) {
-                return false;
-            }
-        }
-        true
-    });
-    Ok(())
-}
-
 #[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete word from task
 fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool> {
@@ -520,42 +548,12 @@ pub struct SortBy {
     reverse: bool,
 }
 
-/// Sort task list by slice of TaskSort objects
-fn sort_tasks(sorts: &[SortBy], ctx: &mut Context) {
-    ctx.tasks.0.sort_by(|a, b| {
-        let mut cmp = Ordering::Equal;
-        for sort in sorts {
-            if cmp != Ordering::Equal {
-                break;
-            }
-            cmp = match sort.field {
-                SortByField::CompleteDate => a.parsed.finish_date.cmp(&b.parsed.finish_date),
-                SortByField::Completed => a.parsed.finished.cmp(&b.parsed.finished),
-                SortByField::Context => a.parsed.contexts.get(0).cmp(&b.parsed.contexts.get(0)),
-                SortByField::CreateDate => a.parsed.create_date.cmp(&b.parsed.create_date),
-                SortByField::DueDate => a.parsed.due_date.cmp(&b.parsed.due_date),
-                SortByField::Id => a.id.cmp(&b.id),
-                SortByField::Priority => a.parsed.priority.cmp(&b.parsed.priority),
-                SortByField::Project => a.parsed.projects.get(0).cmp(&b.parsed.projects.get(0)),
-                SortByField::Body => a.parsed.subject.cmp(&b.parsed.subject),
-                SortByField::Raw => a.raw.cmp(&b.raw),
-                SortByField::ThresholdDate => a.parsed.threshold_date.cmp(&b.parsed.threshold_date),
-            };
-            cmp = if sort.reverse { cmp.reverse() } else { cmp };
-        }
-        cmp
-    })
-}
-
 /// List tasks from todo.txt file
 fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &mut Context) -> Result {
-    sort_tasks(
-        &[SortBy {
-            field:   SortByField::Id,
-            reverse: false,
-        }],
-        ctx,
-    );
+    ctx.tasks.sort(&[SortBy {
+        field:   SortByField::Id,
+        reverse: false,
+    }]);
     // remove blank rows
     ctx.tasks.retain(|t| !t.is_blank());
     // use for 'n of m tasks shown' message (not including blanks)
@@ -563,7 +561,8 @@ fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &mut Context) -> Res
     // filter based on terms
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
-        apply_filter(terms, ctx)?;
+        // apply_filter(terms, ctx)?;
+        ctx.tasks.filter_terms(terms);
     } else {
         info!("Listing without filter");
     }
