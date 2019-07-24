@@ -25,7 +25,6 @@ pub struct Opt {
     pub quiet:                 bool,
     pub date_on_add:           bool,
     pub no_date_on_add:        bool,
-    pub total_task_ct:         usize,
     pub config_file:           Option<PathBuf>,
     pub cmd:                   Option<Command>,
 }

@@ -93,12 +93,16 @@ struct Task {
 
 impl Task {
     /// Create new task from string and ID
-    fn new(id: usize, raw_text: &str) -> Self {
+    fn new<T>(id: usize, raw_text: T) -> Self
+    where
+        T: Into<String>,
+        T: Copy,
+    {
         Task {
             id,
-            parsed: todo_txt::parser::task(raw_text)
-                .unwrap_or_else(|_| panic!("couldn't parse into todo: '{}'", raw_text)),
-            raw: raw_text.to_string(),
+            parsed: todo_txt::parser::task(&raw_text.into())
+                .unwrap_or_else(|_| panic!("couldn't parse into todo: '{}'", raw_text.into())),
+            raw: raw_text.into(),
         }
     }
 
@@ -122,12 +126,12 @@ impl Task {
 
     /// Turn into plain string with properly padded line number
     #[allow(dead_code)]
-    fn stringify(&self, total_task_ct: usize) -> impl Display {
+    fn stringify(&self, task_ct: usize) -> impl Display {
         format!(
             "{:0ct$} {}",
             self.id,
             self.raw,
-            ct = total_task_ct.to_string().len(),
+            ct = task_ct.to_string().len(),
         )
     }
 }
@@ -229,7 +233,7 @@ fn format_buffer(buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
             buf,
             "{:0ct$} ",
             &task.id,
-            ct = ctx.opts.total_task_ct.to_string().len()
+            ct = ctx.task_ct.to_string().len()
         )?;
         let mut words = line.split_whitespace().peekable();
         while let Some(word) = words.next() {
@@ -330,6 +334,7 @@ struct Context {
     settings:    Settings,
     styles:      Vec<Style>,
     tasks:       Tasks,
+    task_ct:     usize,
     todo_file:   PathBuf,
     done_file:   PathBuf,
     report_file: PathBuf,
@@ -409,7 +414,7 @@ fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool>
                     return Ok(false);
                 }
                 let result = re.replace_all(&task.raw, "");
-                let new = Task::new(task.id, &result).normalize_whitespace();
+                let new = Task::new(task.id, &result.into_owned()).normalize_whitespace();
                 info!("Task after editing: {}", new.raw);
                 println!("TODO: Removed '{}' from task.", t);
                 println!("{}", new);
@@ -437,42 +442,47 @@ fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool>
 }
 
 /// Write tasks to file
-fn write_buf_to_file<P: AsRef<Path>>(buf: &str, todo_file_path: P, append: bool) -> Result {
+fn write_buf_to_file<T>(buf: T, ctx: &Context, append: bool) -> Result
+where
+    T: Into<String>,
+{
     let mut file = OpenOptions::new()
         .write(true)
         .truncate(!append)
         .append(append)
-        .open(&todo_file_path)?;
-    write!(file, "{}", buf)?;
+        .open(&ctx.todo_file)?;
+    write!(file, "{}", buf.into())?;
     if append {
         writeln!(file)?; // Add newline at end
     }
     let action = if append { "Appended" } else { "Wrote" };
-    info!("{} tasks to file {:?}", action, todo_file_path.as_ref());
+    info!("{} tasks to file {:?}", action, ctx.todo_file);
     Ok(())
 }
 
 /// Load todo.txt file and parse into Task objects.
 /// If the file doesn't exist, create it.
-fn get_tasks<P: AsRef<Path>>(todo_file_path: P) -> Result<Tasks> {
+fn get_tasks(ctx: &mut Context) -> Result {
     let mut todo_file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
-        .open(&todo_file_path)
-        .context(format!("file: {:?}", todo_file_path.as_ref()))?;
+        .open(&ctx.todo_file)
+        .context(format!("file: {:?}", ctx.todo_file))?;
     // create string buffer and read file into it
     let mut buf = String::new();
     todo_file.read_to_string(&mut buf)?;
     let mut task_ct = 0;
-    Ok(Tasks(
+    ctx.tasks = Tasks(
         buf.lines()
             .map(|l| {
                 task_ct += 1;
                 Task::new(task_ct, l)
             })
             .collect(),
-    ))
+    );
+    ctx.task_ct = task_ct;
+    Ok(())
 }
 
 /// Fields of `Task` we can sort by
@@ -577,21 +587,20 @@ fn add(task: String, ctx: &mut Context) -> Result<Task> {
         io::stdout().flush().unwrap();
         io::stdin().read_line(&mut task).unwrap();
     }
-    ctx.opts.total_task_ct += 1;
-    // if ctx.settings.date_on_add.unwrap_or_default() && !ctx.opts.no_date_on_add {
+    ctx.task_ct += 1;
     if ctx.opts.date_on_add {
         let dt = Utc::today().format("%Y-%m-%d");
         task = format!("{} {}", dt, task);
     }
-    let new = Task::new(ctx.opts.total_task_ct, &task);
+    let new = Task::new(ctx.task_ct, &task);
     println!("{}", new);
     println!("TODO: {} added.", new.id);
     Ok(new)
 }
 
-/// Direct the execution of the program based on the Command in the
-/// Context object
-fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
+/// Expand shell variables in paths and write to
+/// top-level variables in Context
+fn expand_paths(ctx: &mut Context) -> Result {
     ctx.todo_file = ctx
         .settings
         .todo_file
@@ -613,8 +622,14 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
         .and_then(|s| shellexpand::env(s).ok())
         .map(|s| PathBuf::from(s.into_owned()))
         .ok_or_else(|| err_msg("could not get todo file"))?;
-    ctx.tasks = get_tasks(&ctx.todo_file)?;
-    ctx.opts.total_task_ct = ctx.tasks.len();
+    Ok(())
+}
+
+/// Direct the execution of the program based on the Command in the
+/// Context object
+fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
+    expand_paths(ctx)?;
+    get_tasks(ctx)?;
 
     // Debug print of all settings
     debug!("{:#?}", ctx.opts);
@@ -629,17 +644,17 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
         Some(command) => match command {
             Command::Add { task } => {
                 let new = add(task, ctx)?;
-                write_buf_to_file(&new.raw, &ctx.todo_file, true)?;
+                write_buf_to_file(new.raw, ctx, true)?;
             }
             Command::Addm { tasks } => {
                 for task in tasks {
                     let new = add(task, ctx)?;
-                    write_buf_to_file(&new.raw, &ctx.todo_file, true)?;
+                    write_buf_to_file(new.raw, ctx, true)?;
                 }
             }
             Command::Delete { item, term } => {
                 if delete(item, &term, ctx)? {
-                    write_buf_to_file(&tasks_to_string(ctx)?, &ctx.todo_file, false)?;
+                    write_buf_to_file(tasks_to_string(ctx)?, ctx, false)?;
                     return Ok(());
                 }
                 exit(1)
