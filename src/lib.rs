@@ -22,6 +22,7 @@ use std::{
     fmt::{self, Display},
     fs::OpenOptions,
     io::{self, Read, Write},
+    ops::AddAssign,
     path::{Path, PathBuf},
     process::{exit, Command as ExtCommand, Output},
 };
@@ -45,6 +46,14 @@ impl IntoIterator for Tasks {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl AddAssign for Tasks {
+    fn add_assign(&mut self, other: Self) {
+        for i in other {
+            self.0.push(i);
+        }
     }
 }
 
@@ -375,6 +384,7 @@ struct Context {
     settings:    Settings,
     styles:      Vec<Style>,
     tasks:       Tasks,
+    done:        Tasks,
     task_ct:     usize,
     todo_file:   PathBuf,
     done_file:   PathBuf,
@@ -510,6 +520,31 @@ fn get_tasks(ctx: &mut Context) -> Result {
             .collect(),
     );
     ctx.task_ct = task_ct;
+    Ok(())
+}
+
+/// Load done.txt file and parse into Task objects.
+/// If the file doesn't exist, create it.
+fn get_done(ctx: &mut Context) -> Result {
+    let mut done_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&ctx.done_file)
+        .context(format!("file: {:?}", ctx.done_file))?;
+    // create string buffer and read file into it
+    let mut buf = String::new();
+    done_file.read_to_string(&mut buf)?;
+    let mut task_ct = 0;
+    ctx.tasks += Tasks(
+        buf.lines()
+            .map(|l| {
+                task_ct += 1;
+                Task::new(0, l)
+            })
+            .collect(),
+    );
+    ctx.task_ct += task_ct;
     Ok(())
 }
 
@@ -661,7 +696,10 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
             Command::List { terms } => {
                 list(&terms, buf, ctx)?;
             }
-            Command::Listall { terms } => info!("Listing all {:?}", terms),
+            Command::Listall { terms } => {
+                get_done(ctx)?;
+                list(&terms, buf, ctx)?;
+            }
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
             Command::Addto => info!("Adding to..."),
             Command::Append { item, text } => info!("Appending: {:?} to task {}", text, item),

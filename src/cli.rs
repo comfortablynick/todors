@@ -215,6 +215,31 @@ Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
             .multiple(true)
     }
 }
+
+fn command_listall(cmds: &mut Vec<App>) {
+    const ABOUT: &str = "Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.";
+    let cmd = SubCommand::with_name("listall")
+        .alias("lsa")
+        .about(ABOUT)
+        .arg(arg_terms());
+    cmds.push(cmd);
+
+    fn arg_terms() -> Arg {
+        const SHORT: &str = "Term to filter task list by.";
+        const LONG: &str = long!("\
+Term to filter task list by.
+
+Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.
+
+Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).  If no TERM specified, 
+lists entire todo.txt AND done.txt concatenated and sorted.");
+        Arg::positional("terms", "TERM")
+            .help(SHORT)
+            .long_help(LONG)
+            .multiple(true)
+    }
+}
+
 fn command_add(cmds: &mut Vec<App>) {
     const ABOUT: &str = "Add a line to your todo.txt file.";
     cmds.push(
@@ -320,6 +345,7 @@ fn commands() -> Vec<App> {
     command_add(&mut cmds);
     command_addm(&mut cmds);
     command_list(&mut cmds);
+    command_listall(&mut cmds);
     command_del(&mut cmds);
     cmds
 }
@@ -383,6 +409,11 @@ fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches<'static>>), opt: &mut 
         }
         ("list", Some(args)) => {
             opt.cmd = Some(Command::List {
+                terms: values_t!(args.values_of("terms"), String).unwrap_or_default(),
+            });
+        }
+        ("listall", Some(args)) => {
+            opt.cmd = Some(Command::Listall {
                 terms: values_t!(args.values_of("terms"), String).unwrap_or_default(),
             });
         }
