@@ -59,6 +59,12 @@ impl AddAssign for Tasks {
 
 #[allow(dead_code)]
 impl Tasks {
+    /// Create new Tasks object
+    pub fn new() -> Self {
+        let new = Vec::new();
+        Self(new)
+    }
+
     /// Add a new Task to Tasks collection
     pub fn add(mut self, new_task: Task) -> Self {
         self.0.push(new_task);
@@ -386,6 +392,7 @@ struct Context {
     tasks:       Tasks,
     done:        Tasks,
     task_ct:     usize,
+    done_ct:     usize,
     todo_file:   PathBuf,
     done_file:   PathBuf,
     report_file: PathBuf,
@@ -406,15 +413,6 @@ struct Settings {
 struct Config {
     general: Settings,
     styles:  Vec<Style>,
-}
-
-/// Gets toml config file in same directory as src
-/// TODO: takes from $PWD, not source dir
-fn get_def_cfg_file_path() -> Result<PathBuf> {
-    let mut path =
-        std::env::current_dir().context("get_def_cfg_file_path(): error getting current dir")?;
-    path.push("todo.toml");
-    Ok(path)
 }
 
 /// Read and process cfg from toml into Config object
@@ -536,7 +534,7 @@ fn get_done(ctx: &mut Context) -> Result {
     let mut buf = String::new();
     done_file.read_to_string(&mut buf)?;
     let mut task_ct = 0;
-    ctx.tasks += Tasks(
+    ctx.done = Tasks(
         buf.lines()
             .map(|l| {
                 task_ct += 1;
@@ -544,7 +542,7 @@ fn get_done(ctx: &mut Context) -> Result {
             })
             .collect(),
     );
-    ctx.task_ct += task_ct;
+    ctx.done_ct += task_ct;
     Ok(())
 }
 
@@ -584,22 +582,37 @@ pub struct SortBy {
 }
 
 /// List tasks from todo.txt file
-fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &mut Context) -> Result {
+fn list(
+    terms: &[String],
+    buf: &mut termcolor::Buffer,
+    ctx: &mut Context,
+    list_all: bool,
+) -> Result {
+    // TODO: extract filter and sort logic so I don't have to repeat it
+    ctx.tasks.retain(|t| !t.is_blank());
+    ctx.done.retain(|t| !t.is_blank());
+    let prefilter_task_ct = ctx.tasks.len();
+    let prefilter_done_ct = ctx.done.len();
     ctx.tasks.sort(&[SortBy {
         field:   SortByField::Id,
         reverse: false,
     }]);
-    // remove blank rows
-    ctx.tasks.retain(|t| !t.is_blank());
-    // use for 'n of m tasks shown' message (not including blanks)
-    let prefilter_len = ctx.tasks.len();
+    if list_all {
+        ctx.done.sort(&[SortBy {
+            field:   SortByField::Id,
+            reverse: false,
+        }]);
+    }
     // filter based on terms
     if !terms.is_empty() {
         info!("Listing with terms: {:?}", terms);
-        // apply_filter(terms, ctx)?;
         ctx.tasks.filter_terms(terms);
+        ctx.done.filter_terms(terms);
     } else {
         info!("Listing without filter");
+    }
+    if list_all {
+        ctx.tasks += ctx.done.clone();
     }
     // fill buffer with formatted (colored) output
     format_buffer(buf, &ctx)?;
@@ -608,8 +621,16 @@ fn list(terms: &[String], buf: &mut termcolor::Buffer, ctx: &mut Context) -> Res
         buf,
         "--\nTODO: {} of {} tasks shown\n",
         ctx.tasks.len(),
-        prefilter_len,
+        prefilter_task_ct,
     )?;
+    if list_all {
+        writeln!(
+            buf,
+            "DONE: {} of {} tasks shown",
+            ctx.done.len(),
+            prefilter_done_ct,
+        )?;
+    }
     Ok(())
 }
 
@@ -694,11 +715,11 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
                 exit(1)
             }
             Command::List { terms } => {
-                list(&terms, buf, ctx)?;
+                list(&terms, buf, ctx, false)?;
             }
             Command::Listall { terms } => {
                 get_done(ctx)?;
-                list(&terms, buf, ctx)?;
+                list(&terms, buf, ctx, true)?;
             }
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
             Command::Addto => info!("Adding to..."),
@@ -706,12 +727,12 @@ fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
         },
         None => match &ctx.settings.default_action {
             Some(cmd) => match cmd.as_str() {
-                "ls" | "list" => list(&[], buf, ctx)?,
+                "ls" | "list" => list(&[], buf, ctx, false)?,
                 _ => panic!("Unknown command: {:?}", cmd),
             },
             None => {
                 info!("No command supplied; defaulting to List");
-                list(&[], buf, ctx)?;
+                list(&[], buf, ctx, false)?;
             }
         },
     }
@@ -733,7 +754,6 @@ pub fn run(args: &[String], buf: &mut termcolor::Buffer) -> Result {
     let cfg_file = opts
         .config_file
         .clone()
-        .or_else(|| get_def_cfg_file_path().ok())
         .expect("could not find valid cfg file path");
     let cfg = read_config(cfg_file)?;
     let mut ctx = Context {
