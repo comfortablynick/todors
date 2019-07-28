@@ -181,10 +181,12 @@ Location of toml config file. Various options can be set, including
 colors and styles."
     );
     args.push(
-        Arg::option("config-file", "CONFIG_FILE")
+        Arg::with_name("config-file")
             .short('d')
             .help(SHORT)
             .long_help(LONG)
+            .takes_value(true)
+            .value_name("CONFIG_FILE")
             .env("TODORS_CFG_FILE"),
     );
 }
