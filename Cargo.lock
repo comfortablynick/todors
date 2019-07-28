@@ -547,7 +547,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "structopt"
 version = "0.3.0"
-source = "git+https://github.com/TeXitoi/structopt.git#119dd7eb740671d3b8e29d93cf1dc9284e54a99b"
+source = "git+https://github.com/TeXitoi/structopt.git#94946c3b5f32b92fb1475f9f202ca462e46f56ce"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt-derive 0.3.0 (git+https://github.com/TeXitoi/structopt.git)",
@@ -556,7 +556,7 @@ dependencies = [
 [[package]]
 name = "structopt-derive"
 version = "0.3.0"
-source = "git+https://github.com/TeXitoi/structopt.git#119dd7eb740671d3b8e29d93cf1dc9284e54a99b"
+source = "git+https://github.com/TeXitoi/structopt.git#94946c3b5f32b92fb1475f9f202ca462e46f56ce"
 dependencies = [
  "heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.27 (registry+https://github.com/rust-lang/crates.io-index)",
