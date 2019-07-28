@@ -4,13 +4,13 @@
 use crate::{app::ArgExt, errors::Result, long};
 use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
-    AppSettings, SubCommand,
+    AppSettings,
 };
 use log::{debug, log_enabled, trace};
 use std::{convert::TryInto, path::PathBuf};
 
-type Arg = clap::Arg<'static, 'static>;
-type App = clap::App<'static, 'static>;
+type Arg = clap::Arg<'static>;
+type App = clap::App<'static>;
 
 /// Command line arguments
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -55,7 +55,7 @@ For example: -v, -vv, -vvv
 The quiet flag -q will override this setting and will silence log output."
     );
     args.push(
-        Arg::flag("verbose", "v")
+        Arg::flag("verbose", 'v')
             .help(SHORT)
             .long_help(LONG)
             .multiple(true),
@@ -71,7 +71,7 @@ Quiet debug messages on console. Overrides verbosity (-v) setting.
 The arguments -vvvq will produce no console debug output."
     );
     args.push(
-        Arg::flag("quiet", "q")
+        Arg::flag("quiet", 'q')
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("verbosity"),
@@ -86,7 +86,7 @@ Plain mode turns off colors and overrides environment settings
 that control terminal colors. Color settings in config will
 have no effect."
     );
-    args.push(Arg::flag("plain", "p").help(SHORT).long_help(LONG));
+    args.push(Arg::flag("plain", 'p').help(SHORT).long_help(LONG));
 }
 
 fn flag_preserve_line_numbers(args: &mut Vec<Arg>) {
@@ -99,7 +99,7 @@ remain blank.
         "
     );
     args.push(
-        Arg::flag("preserve-line-numbers", "N")
+        Arg::flag("preserve-line-numbers", 'N')
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("remove-blank-lines"),
@@ -114,7 +114,7 @@ Don't preserve line (task) numbers. Opposite of -N. When a task is
 deleted, the following tasks will be moved up one line."
     );
     args.push(
-        Arg::flag("remove-blank-lines", "n")
+        Arg::flag("remove-blank-lines", 'n')
             .help(SHORT)
             .long_help(LONG),
     );
@@ -127,7 +127,7 @@ fn flag_hide_context(args: &mut Vec<Arg>) {
 Hide task contexts from output. Use twice to unhide contexts, which
 returns to the default behavior of showing contexts."
     );
-    args.push(Arg::flag("hide-context", "@").help(SHORT).long_help(LONG));
+    args.push(Arg::flag("hide-context", '@').help(SHORT).long_help(LONG));
 }
 
 fn flag_hide_project(args: &mut Vec<Arg>) {
@@ -137,7 +137,7 @@ fn flag_hide_project(args: &mut Vec<Arg>) {
 Hide task projects from output. Use twice to unhide projects, which
 returns to the default behavior of showing projects."
     );
-    args.push(Arg::flag("hide-project", "+").help(SHORT).long_help(LONG));
+    args.push(Arg::flag("hide-project", '+').help(SHORT).long_help(LONG));
 }
 
 fn flag_hide_priority(args: &mut Vec<Arg>) {
@@ -148,14 +148,14 @@ Hide task priorities from output. Use twice to show priorities, which
 returns to the default behavior of showing priorities."
     );
 
-    args.push(Arg::flag("hide-priority", "P").help(SHORT).long_help(LONG));
+    args.push(Arg::flag("hide-priority", 'P').help(SHORT).long_help(LONG));
 }
 
 fn flag_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Prepend current date to new task";
     const LONG: &str = long!("Prepend current date to new task");
     args.push(
-        Arg::flag("date-on-add", "t")
+        Arg::flag("date-on-add", 't')
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("no-date-on-add"),
@@ -166,7 +166,7 @@ fn flag_no_date_on_add(args: &mut Vec<Arg>) {
     const SHORT: &str = "Don't prepend current date to new task";
     const LONG: &str = long!("Don't prepend current date to new task");
     args.push(
-        Arg::flag("no-date-on-add", "T")
+        Arg::flag("no-date-on-add", 'T')
             .help(SHORT)
             .long_help(LONG)
             .overrides_with("date-on-add"),
@@ -182,7 +182,7 @@ colors and styles."
     );
     args.push(
         Arg::option("config-file", "CONFIG_FILE")
-            .short("d")
+            .short('d')
             .help(SHORT)
             .long_help(LONG)
             .env("TODORS_CFG_FILE"),
@@ -192,10 +192,7 @@ colors and styles."
 fn command_list(cmds: &mut Vec<App>) {
     const ABOUT: &str =
         "Displays all tasks that contain TERM(s) sorted by priority with line numbers.";
-    let cmd = SubCommand::with_name("list")
-        .alias("ls")
-        .about(ABOUT)
-        .arg(arg_terms());
+    let cmd = App::new("list").alias("ls").about(ABOUT).arg(arg_terms());
     cmds.push(cmd);
 
     // TODO: make sure list filter actually works according to help
@@ -218,7 +215,7 @@ Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
 
 fn command_listall(cmds: &mut Vec<App>) {
     const ABOUT: &str = "Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.";
-    let cmd = SubCommand::with_name("listall")
+    let cmd = App::new("listall")
         .alias("lsa")
         .about(ABOUT)
         .arg(arg_terms());
@@ -242,12 +239,7 @@ lists entire todo.txt AND done.txt concatenated and sorted.");
 
 fn command_add(cmds: &mut Vec<App>) {
     const ABOUT: &str = "Add a line to your todo.txt file.";
-    cmds.push(
-        SubCommand::with_name("add")
-            .alias("a")
-            .about(ABOUT)
-            .arg(arg_task()),
-    );
+    cmds.push(App::new("add").alias("a").about(ABOUT).arg(arg_task()));
 
     // local args
     fn arg_task() -> Arg {
@@ -269,7 +261,7 @@ Quotes optional."
 
 fn command_addm(cmds: &mut Vec<App>) {
     const ABOUT: &str = "Add multiple lines to todo.txt file";
-    cmds.push(SubCommand::with_name("addm").about(ABOUT).arg(arg_tasks()));
+    cmds.push(App::new("addm").about(ABOUT).arg(arg_tasks()));
 
     fn arg_tasks() -> Arg {
         const SHORT: &str = "Todo items (line separated)";
@@ -298,7 +290,7 @@ Deletes the task on line of todo.txt.
 If TERM specified, deletes only TERM from the task"
     );
     cmds.push(
-        SubCommand::with_name("del")
+        App::new("del")
             .alias("rm")
             .about(SHORT)
             .long_about(LONG)
@@ -376,8 +368,8 @@ ACTIONS:
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::AllArgsOverrideSelf)
         .setting(AppSettings::UnifiedHelpMessage)
-        .usage(USAGE.as_str())
-        .template(TEMPLATE)
+        .override_usage(USAGE.as_str())
+        .help_template(TEMPLATE)
         .max_term_width(100);
 
     for arg in base_args() {
@@ -389,7 +381,7 @@ ACTIONS:
 
 /// Parse the clap matches into Command.
 /// Will return an error if required arguments are missing or invalid.
-fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches<'static>>), opt: &mut Opt) -> Result {
+fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches>), opt: &mut Opt) -> Result {
     match cmd {
         ("add", Some(arg)) => {
             opt.cmd = Some(Command::Add {

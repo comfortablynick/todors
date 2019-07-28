@@ -15,7 +15,7 @@ pub trait ArgExt {
     /// Create a boolean flag. Flags take no values.
     /// Flag name is assigned as long name.
     /// Short name can be a blank string to use long name only.
-    fn flag(name: &'static str, short: &'static str) -> Self;
+    fn flag(name: &'static str, short: char) -> Self;
     /// Create an option. A option always accepts exactly one argument.
     /// A short name may be supplied. The `name` will be used as long name.
     /// If no long name is desired, create a clap::Arg from scratch.
@@ -32,8 +32,8 @@ pub trait ArgExt {
 
 /// Helper methods to extend the clap::Arg type.
 /// Trait must be imported to use these methods.
-impl ArgExt for Arg<'static, 'static> {
-    fn flag(name: &'static str, short: &'static str) -> Self {
+impl ArgExt for Arg<'static> {
+    fn flag(name: &'static str, short: char) -> Self {
         Arg::with_name(name).long(name).short(short)
     }
 
@@ -59,7 +59,7 @@ impl ArgExt for Arg<'static, 'static> {
 
     fn no_long(mut self, remove: bool) -> Self {
         if remove {
-            self.s.long = None;
+            self.long = None;
         }
         self
     }
