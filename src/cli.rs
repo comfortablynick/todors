@@ -1,16 +1,23 @@
-//! clap-based cli
-//! Methods adapted from ripgrep
+//! Define cli and methods used globally
+//! Some methods adapted from ripgrep and cargo
 
-use crate::{app::ArgExt, errors::Result, long};
-use clap::{
+pub use crate::{app::ArgExt, config::Context, long};
+pub use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
     AppSettings,
 };
-use log::{debug, log_enabled, trace};
-use std::{convert::TryInto, path::PathBuf};
+pub use failure::{err_msg, Error, ResultExt};
+pub use log::{debug, info, log_enabled, trace};
+use std::result::Result as StdResult;
+pub use std::{
+    convert::TryInto,
+    path::{Path, PathBuf},
+    process::{exit, Command as ExtCommand, Output},
+};
+pub type Result<T = ()> = StdResult<T, Error>;
 
-type Arg = clap::Arg<'static>;
-type App = clap::App<'static>;
+pub type Arg = clap::Arg<'static>;
+pub type App = clap::App<'static>;
 
 /// Command line arguments
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
