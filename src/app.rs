@@ -1,6 +1,6 @@
 //! Helper methods for defining clap apps
 
-use clap::Arg;
+use clap::{App, Arg};
 
 /// Add an extra space to long descriptions so that a blank line is inserted
 /// between flag descriptions in --help output.
@@ -11,6 +11,29 @@ macro_rules! long {
     };
 }
 
+/// Additional methods extending the clap App struct
+pub trait AppExt {
+    /// Subcommand with sensible defaults
+    fn command(name: &'static str) -> Self;
+}
+
+impl AppExt for App<'static> {
+    fn command(name: &'static str) -> Self {
+        App::new(name)
+            .arg(
+                Arg::flag("quiet", 'q')
+                    .help("Silence debug messages")
+                    .overrides_with("quiet"),
+            )
+            .arg(
+                Arg::flag("verbose", 'v')
+                    .help("Output debug messages to console")
+                    .overrides_with("verbose"),
+            )
+    }
+}
+
+/// Additional methods extending the clap Arg struct
 pub trait ArgExt {
     /// Create a boolean flag. Flags take no values.
     /// Flag name is assigned as long name.
@@ -30,8 +53,6 @@ pub trait ArgExt {
     fn no_long(self, remove: bool) -> Self;
 }
 
-/// Helper methods to extend the clap::Arg type.
-/// Trait must be imported to use these methods.
 impl ArgExt for Arg<'static> {
     fn flag(name: &'static str, short: char) -> Self {
         Arg::with_name(name).long(name).short(short)

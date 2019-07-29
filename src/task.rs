@@ -45,7 +45,7 @@ impl Tasks {
     }
 
     /// Add a new Task to Tasks collection
-    pub fn add(mut self, new_task: Task) -> Self {
+    pub fn add_task(mut self, new_task: Task) -> Self {
         self.0.push(new_task);
         self
     }
@@ -63,6 +63,11 @@ impl Tasks {
     /// Returns the number of elements in the slice
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Returns true if container is empty
+    pub fn is_empty(&self) -> bool {
+        self.0.len() == 0
     }
 
     /// Retain based on closure

@@ -1,8 +1,12 @@
 //! Define cli and methods used globally
 //! Some methods adapted from ripgrep and cargo
 
-use crate::actions::list;
-pub use crate::{app::ArgExt, config::Context, long};
+use crate::actions::{add, delete, list};
+pub use crate::{
+    app::{AppExt, ArgExt},
+    config::Context,
+    long,
+};
 pub use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
     AppSettings,
@@ -199,85 +203,6 @@ colors and styles."
     );
 }
 
-fn command_add(cmds: &mut Vec<App>) {
-    const ABOUT: &str = "Add a line to your todo.txt file.";
-    cmds.push(App::new("add").alias("a").about(ABOUT).arg(arg_task()));
-
-    // local args
-    fn arg_task() -> Arg {
-        const SHORT: &str = "Todo item";
-        const LONG: &str = long!(
-            "\
-THING I NEED TO DO +project @context
-
-Adds THING I NEED TO DO to your todo.txt file on its own line.
-Project and context notation optional.
-Quotes optional."
-        );
-        Arg::positional("task", "TASK")
-            .help(SHORT)
-            .long_help(LONG)
-            .required(true)
-    }
-}
-
-fn command_addm(cmds: &mut Vec<App>) {
-    const ABOUT: &str = "Add multiple lines to todo.txt file";
-    cmds.push(App::new("addm").about(ABOUT).arg(arg_tasks()));
-
-    fn arg_tasks() -> Arg {
-        const SHORT: &str = "Todo items (line separated)";
-        const LONG: &str = long!(
-            "
-\"FIRST THING I NEED TO DO +project1 @context
-SECOND THING I NEED TO DO +project2 @context\"
-
-Adds FIRST THING I NEED TO DO on its own line and SECOND THING I NEED TO DO on its own line.
-Project and context notation optional.
-Quotes required."
-        );
-        Arg::positional("tasks", "TASKS")
-            .help(SHORT)
-            .long_help(LONG)
-            .value_delimiter("\n")
-            .required(true)
-    }
-}
-
-fn command_del(cmds: &mut Vec<App>) {
-    const SHORT: &str = "Deletes the task on line of todo.txt";
-    const LONG: &str = long!(
-        "\
-Deletes the task on line of todo.txt.
-If TERM specified, deletes only TERM from the task"
-    );
-    cmds.push(
-        App::new("del")
-            .alias("rm")
-            .about(SHORT)
-            .long_about(LONG)
-            .args(&[arg_item(), arg_term()]),
-    );
-
-    fn arg_item() -> Arg {
-        const SHORT: &str = "Line number of task to delete";
-        Arg::positional("item", "ITEM").help(SHORT).required(true)
-    }
-
-    fn arg_term() -> Arg {
-        const SHORT: &str = "Optional term to remove from item";
-        const LONG: &str = long!(
-            "\
-Optional term to remove from item.
-
-If TERM is specified, only the TERM is removed from ITEM.
-
-If no TERM is specified, the entire ITEM is deleted."
-        );
-        Arg::positional("term", "TERM").help(SHORT).long_help(LONG)
-    }
-}
-
 fn base_args() -> Vec<Arg> {
     let mut args = vec![];
     flag_verbose(&mut args);
@@ -296,11 +221,11 @@ fn base_args() -> Vec<Arg> {
 
 fn commands() -> Vec<App> {
     let mut cmds = vec![];
-    command_add(&mut cmds);
-    command_addm(&mut cmds);
+    add::command_add(&mut cmds);
+    add::command_addm(&mut cmds);
     list::command_list(&mut cmds);
     list::command_listall(&mut cmds);
-    command_del(&mut cmds);
+    delete::command_del(&mut cmds);
     cmds
 }
 

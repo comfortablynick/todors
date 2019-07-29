@@ -8,7 +8,10 @@ use std::io::Write;
 pub fn command_list(cmds: &mut Vec<App>) {
     const ABOUT: &str =
         "Displays all tasks that contain TERM(s) sorted by priority with line numbers.";
-    let cmd = App::new("list").alias("ls").about(ABOUT).arg(arg_terms());
+    let cmd = App::command("list")
+        .alias("ls")
+        .about(ABOUT)
+        .arg(arg_terms());
     cmds.push(cmd);
 
     // TODO: make sure list filter actually works according to help
@@ -31,7 +34,7 @@ Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
 
 pub fn command_listall(cmds: &mut Vec<App>) {
     const ABOUT: &str = "Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.";
-    let cmd = App::new("listall")
+    let cmd = App::command("listall")
         .alias("lsa")
         .about(ABOUT)
         .arg(arg_terms());
