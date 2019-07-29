@@ -5,13 +5,66 @@ use crate::{
 };
 use std::io::Write;
 
+pub fn command_list(cmds: &mut Vec<App>) {
+    const ABOUT: &str =
+        "Displays all tasks that contain TERM(s) sorted by priority with line numbers.";
+    let cmd = App::new("list").alias("ls").about(ABOUT).arg(arg_terms());
+    cmds.push(cmd);
+
+    // TODO: make sure list filter actually works according to help
+    // local args
+    fn arg_terms() -> Arg {
+        const SHORT: &str = "Term to filter task list by.";
+        const LONG: &str = long!("\
+Term to filter task list by.
+
+Each task must match all TERM(s) (logical AND); to display tasks that contain any TERM (logical OR), use
+\"TERM1\\|TERM2\\|...\" (with quotes), or TERM1|TERM2 (unquoted).
+
+Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
+        Arg::positional("terms", "TERM")
+            .help(SHORT)
+            .long_help(LONG)
+            .multiple(true)
+    }
+}
+
+pub fn command_listall(cmds: &mut Vec<App>) {
+    const ABOUT: &str = "Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.";
+    let cmd = App::new("listall")
+        .alias("lsa")
+        .about(ABOUT)
+        .arg(arg_terms());
+    cmds.push(cmd);
+
+    fn arg_terms() -> Arg {
+        const SHORT: &str = "Term to filter task list by.";
+        const LONG: &str = long!("\
+Term to filter task list by.
+
+Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.
+
+Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).  If no TERM specified, 
+lists entire todo.txt AND done.txt concatenated and sorted.");
+        Arg::positional("terms", "TERM")
+            .help(SHORT)
+            .long_help(LONG)
+            .multiple(true)
+    }
+}
+
 /// List tasks from todo.txt file
-pub fn list(
+pub fn list<T>(
     terms: &[String],
-    buf: &mut termcolor::Buffer,
+    // buf: &mut termcolor::Buffer,
+    buf: &mut T,
     ctx: &mut Context,
     list_all: bool,
-) -> Result {
+) -> Result
+where
+    T: std::io::Write,
+    T: termcolor::WriteColor,
+{
     // TODO: extract filter and sort logic so I don't have to repeat it
     ctx.tasks.retain(|t| !t.is_blank());
     ctx.done.retain(|t| !t.is_blank());

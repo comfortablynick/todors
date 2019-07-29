@@ -86,7 +86,7 @@ pub fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
 }
 
 /// Format output and add color to priorities, projects and contexts
-pub fn format_buffer(buf: &mut termcolor::Buffer, ctx: &Context) -> Result {
+pub fn format_buffer<T:termcolor::WriteColor>(buf: &mut T, ctx: &Context) -> Result {
     for task in &ctx.tasks.0 {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();

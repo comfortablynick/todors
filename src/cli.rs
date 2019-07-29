@@ -1,6 +1,7 @@
 //! Define cli and methods used globally
 //! Some methods adapted from ripgrep and cargo
 
+use crate::actions::list;
 pub use crate::{app::ArgExt, config::Context, long};
 pub use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
@@ -198,54 +199,6 @@ colors and styles."
     );
 }
 
-fn command_list(cmds: &mut Vec<App>) {
-    const ABOUT: &str =
-        "Displays all tasks that contain TERM(s) sorted by priority with line numbers.";
-    let cmd = App::new("list").alias("ls").about(ABOUT).arg(arg_terms());
-    cmds.push(cmd);
-
-    // TODO: make sure list filter actually works according to help
-    // local args
-    fn arg_terms() -> Arg {
-        const SHORT: &str = "Term to filter task list by.";
-        const LONG: &str = long!("\
-Term to filter task list by.
-
-Each task must match all TERM(s) (logical AND); to display tasks that contain any TERM (logical OR), use
-\"TERM1\\|TERM2\\|...\" (with quotes), or TERM1|TERM2 (unquoted).
-
-Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
-        Arg::positional("terms", "TERM")
-            .help(SHORT)
-            .long_help(LONG)
-            .multiple(true)
-    }
-}
-
-fn command_listall(cmds: &mut Vec<App>) {
-    const ABOUT: &str = "Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.";
-    let cmd = App::new("listall")
-        .alias("lsa")
-        .about(ABOUT)
-        .arg(arg_terms());
-    cmds.push(cmd);
-
-    fn arg_terms() -> Arg {
-        const SHORT: &str = "Term to filter task list by.";
-        const LONG: &str = long!("\
-Term to filter task list by.
-
-Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by priority with line numbers.
-
-Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).  If no TERM specified, 
-lists entire todo.txt AND done.txt concatenated and sorted.");
-        Arg::positional("terms", "TERM")
-            .help(SHORT)
-            .long_help(LONG)
-            .multiple(true)
-    }
-}
-
 fn command_add(cmds: &mut Vec<App>) {
     const ABOUT: &str = "Add a line to your todo.txt file.";
     cmds.push(App::new("add").alias("a").about(ABOUT).arg(arg_task()));
@@ -345,8 +298,8 @@ fn commands() -> Vec<App> {
     let mut cmds = vec![];
     command_add(&mut cmds);
     command_addm(&mut cmds);
-    command_list(&mut cmds);
-    command_listall(&mut cmds);
+    list::command_list(&mut cmds);
+    list::command_listall(&mut cmds);
     command_del(&mut cmds);
     cmds
 }
