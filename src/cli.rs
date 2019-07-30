@@ -1,5 +1,7 @@
 //! Define cli and methods used globally
 //! Some methods adapted from ripgrep and cargo
+//!
+//! To be used as a wildcard 'prelude' import
 
 use crate::actions::{add, delete, list};
 pub use crate::{
