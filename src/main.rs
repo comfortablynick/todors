@@ -6,7 +6,6 @@ pub mod app;
 pub mod cli;
 pub mod config;
 pub mod file;
-pub mod logger;
 pub mod style;
 pub mod task;
 pub mod util;
@@ -25,15 +24,17 @@ fn main() -> Result<(), ExitFailure> {
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     let mut buf = bufwtr.buffer();
 
-    log::info!("Running with args: {:?}", args);
-    let opts = cli::parse(args)?;
+    let opts = cli::parse(&args)?;
 
     if !opts.quiet {
-        logger::init_logger(opts.verbosity);
+        util::init_env_logger(opts.verbosity);
     }
     if opts.plain {
         std::env::set_var("TERM", "dumb");
     }
+    let mut args = args;
+    args.remove(0);
+    log::info!("Running with args: {:?}", args);
     let cfg_file = opts
         .config_file
         .clone()
