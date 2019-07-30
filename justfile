@@ -1,32 +1,29 @@
 #!/usr/bin/env just --justfile
 alias r := run
-alias rr := run-release
 alias b := build
-alias br := build-release
 alias i := install
 alias h := help
 alias t := todors
 alias q := runq
 
-# build debug binary and copy to ~/bin
-build:
-	cargo build
+dev := '1'
 
-# build release binary and copy to ~/bin
-build-release:
+# build release binary
+build:
 	cargo build --release
 
-# build release binary and install to cargo bin dir
+# build release binary ONLY during dev
+# otherwise install
 install:
-	cargo install --path . -f
-	todors
-
-# build debug binary and run
-run:
-	cargo run
+	#!/usr/bin/env bash
+	if [[ {{dev}} -eq "1" ]]; then
+		cargo run --release
+	else
+		cargo install -f
+	fi
 
 # build release binary and run
-run-release:
+run:
 	cargo run --release
 
 # run with --quiet
@@ -45,7 +42,7 @@ runvv:
 	RUST_LOG=debug cargo run
 
 # run release binary
-todors args='':
+todors +args='':
 	./target/release/todors {{args}}
 
 test:
