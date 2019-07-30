@@ -3,7 +3,6 @@ use crate::{
     style::format_buffer,
     task::{SortBy, SortByField},
 };
-use std::io::Write;
 
 pub fn command_list(cmds: &mut Vec<App>) {
     const ABOUT: &str =

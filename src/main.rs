@@ -1,3 +1,16 @@
+#[macro_use]
+extern crate lazy_static;
+
+pub mod actions;
+pub mod app;
+pub mod cli;
+pub mod config;
+pub mod file;
+pub mod logger;
+pub mod style;
+pub mod task;
+pub mod util;
+
 use exitfailure::ExitFailure;
 use log::error;
 use termcolor::{BufferWriter, ColorChoice};
@@ -12,7 +25,27 @@ fn main() -> Result<(), ExitFailure> {
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     let mut buf = bufwtr.buffer();
 
-    if let Err(e) = todors::run(&args, &mut buf) {
+    log::info!("Running with args: {:?}", args);
+    let opts = cli::parse(args)?;
+
+    if !opts.quiet {
+        logger::init_logger(opts.verbosity);
+    }
+    if opts.plain {
+        std::env::set_var("TERM", "dumb");
+    }
+    let cfg_file = opts
+        .config_file
+        .clone()
+        .expect("could not find valid cfg file path");
+    let cfg = config::read_config(cfg_file)?;
+    let mut ctx = config::Context {
+        opts,
+        settings: cfg.general,
+        styles: cfg.styles,
+        ..Default::default()
+    };
+    if let Err(e) = actions::handle_command(&mut ctx, &mut buf) {
         error!("{:?}", e); // log all errors here
         return Err(e.into());
     }
