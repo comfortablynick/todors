@@ -9,7 +9,7 @@ pub use crate::{
 };
 pub use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
-    AppSettings,
+    AppSettings, ArgSettings,
 };
 pub use failure::{err_msg, Error, ResultExt};
 pub use log::{debug, info, log_enabled, trace};
@@ -68,9 +68,9 @@ The quiet flag -q will override this setting and will silence log output."
     );
     args.push(
         Arg::flag("verbose", 'v')
+            .setting(ArgSettings::MultipleOccurrences)
             .help(SHORT)
-            .long_help(LONG)
-            .multiple(true),
+            .long_help(LONG),
     );
 }
 

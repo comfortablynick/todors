@@ -48,14 +48,17 @@ pub trait ArgExt {
     /// Indicate that any value given to this argument should be a number. If
     /// it's not a number, then clap will report an error to the end user.
     fn number(self) -> Self;
-    /// Remove long option name that was set with helper functions
+    /// Sets argument long name to `None`.
     /// May fail if used on positional arg
-    fn no_long(self, remove: bool) -> Self;
+    fn short_only(self, remove: bool) -> Self;
 }
 
 impl ArgExt for Arg<'static> {
     fn flag(name: &'static str, short: char) -> Self {
-        Arg::with_name(name).long(name).short(short)
+        Arg::with_name(name)
+            .long(name)
+            .short(short)
+            .takes_value(false)
     }
 
     fn option(name: &'static str, value_name: &'static str) -> Self {
@@ -78,7 +81,7 @@ impl ArgExt for Arg<'static> {
         })
     }
 
-    fn no_long(mut self, remove: bool) -> Self {
+    fn short_only(mut self, remove: bool) -> Self {
         if remove {
             self.long = None;
         }
