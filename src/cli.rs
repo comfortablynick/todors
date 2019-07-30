@@ -9,20 +9,15 @@ pub use crate::{
     config::Context,
     long,
 };
-pub use clap::{
+use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
     AppSettings, ArgSettings,
 };
 pub use failure::{err_msg, Error, ResultExt};
 pub use log::{debug, info, log_enabled, trace};
-use std::result::Result as StdResult;
-pub use std::{
-    convert::TryInto,
-    path::{Path, PathBuf},
-    process::{exit, Command as ExtCommand, Output},
-};
+pub use std::process::{exit, Command as ExtCommand, Output};
+use std::{convert::TryInto, path::PathBuf, result::Result as StdResult};
 pub type Result<T = ()> = StdResult<T, Error>;
-
 pub type Arg = clap::Arg<'static>;
 pub type App = clap::App<'static>;
 
