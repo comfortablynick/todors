@@ -20,7 +20,7 @@ install:
 		cargo run --release
 	else
 		cargo install -f
-	fi
+	fi #
 
 # build release binary and run
 run:
