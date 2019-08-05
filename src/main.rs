@@ -5,6 +5,7 @@ pub mod actions;
 pub mod app;
 pub mod cli;
 pub mod config;
+pub mod errors;
 pub mod file;
 pub mod style;
 pub mod task;

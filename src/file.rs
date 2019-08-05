@@ -15,10 +15,13 @@ pub fn get_tasks(ctx: &mut Context) -> Result {
         .write(true)
         .create(true)
         .open(&ctx.todo_file)
-        .context(format!("file: {:?}", ctx.todo_file))?;
+        .context(format!("file: {:?}", ctx.todo_file))
+        .map_err(|_| ErrorType::FileOpenError)?;
     // create string buffer and read file into it
     let mut buf = String::new();
-    todo_file.read_to_string(&mut buf)?;
+    todo_file
+        .read_to_string(&mut buf)
+        .map_err(|_| ErrorType::FileReadError)?;
     let mut task_ct = 0;
     ctx.tasks = Tasks(
         buf.lines()
@@ -40,7 +43,8 @@ pub fn get_done(ctx: &mut Context) -> Result {
         .write(true)
         .create(true)
         .open(&ctx.done_file)
-        .context(format!("file: {:?}", ctx.done_file))?;
+        .context(format!("file: {:?}", ctx.done_file))
+        .map_err(|_| ErrorType::FileOpenError)?;
     // create string buffer and read file into it
     let mut buf = String::new();
     done_file.read_to_string(&mut buf)?;
@@ -66,10 +70,12 @@ where
         .write(true)
         .truncate(!append)
         .append(append)
-        .open(&ctx.todo_file)?;
-    write!(file, "{}", buf.into())?;
+        .open(&ctx.todo_file)
+        .context(format!("file: {:?}", ctx.todo_file))
+        .map_err(|_| ErrorType::FileOpenError)?;
+    write!(file, "{}", buf.into()).map_err(|_| ErrorType::FileWriteError)?;
     if append {
-        writeln!(file)?; // Add newline at end
+        writeln!(file).map_err(|_| ErrorType::FileWriteError)?; // Add newline at end
     }
     let action = if append { "Appended" } else { "Wrote" };
     info!("{} tasks to file {:?}", action, ctx.todo_file);

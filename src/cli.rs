@@ -7,17 +7,18 @@ use crate::actions::{add, delete, list};
 pub use crate::{
     app::{AppExt, ArgExt},
     config::Context,
+    errors::{err_msg, Error, ErrorType, Result, ResultExt},
     long,
 };
 use clap::{
     app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
     AppSettings, ArgSettings,
 };
-pub use failure::{err_msg, Error, ResultExt};
+// pub use failure::{err_msg, Error, ResultExt};
 pub use log::{debug, info, log_enabled, trace};
 pub use std::process::{exit, Command as ExtCommand, Output};
-use std::{convert::TryInto, path::PathBuf, result::Result as StdResult};
-pub type Result<T = ()> = StdResult<T, Error>;
+use std::{convert::TryInto, path::PathBuf};
+// pub type Result<T = ()> = StdResult<T, Error>;
 pub type Arg = clap::Arg<'static>;
 pub type App = clap::App<'static>;
 
