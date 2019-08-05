@@ -39,14 +39,13 @@ pub struct Config {
 /// Read and process cfg from toml into Config object
 pub fn read_config<P>(file_path: P) -> Result<Config>
 where
-    P: AsRef<Path>,
-    P: std::fmt::Debug,
+    P: AsRef<Path> + std::fmt::Debug,
 {
     use std::io::prelude::*;
     let mut config_toml = String::new();
     let mut file = std::fs::File::open(&file_path)
         .context(format!("could not open file {:?}", file_path))
-        .map_err(Error::from)?;
+        .map_err(|_| ErrorType::FileOpenError(format!("{:?}", file_path)))?;
     info!("Found config file at {:?}", file_path);
     file.read_to_string(&mut config_toml)?;
     toml::from_str(&config_toml)
@@ -63,20 +62,20 @@ pub fn expand_paths(ctx: &mut Context) -> Result {
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
         .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| err_msg("could not get todo file"))?;
+        .ok_or_else(|| ErrorType::NoneError("todo file".into()))?;
     ctx.done_file = ctx
         .settings
         .done_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
         .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| err_msg("could not get todo file"))?;
+        .ok_or_else(|| ErrorType::NoneError("done file".into()))?;
     ctx.report_file = ctx
         .settings
         .report_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
         .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| err_msg("could not get todo file"))?;
+        .ok_or_else(|| ErrorType::NoneError("report file".into()))?;
     Ok(())
 }

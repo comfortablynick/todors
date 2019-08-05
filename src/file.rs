@@ -16,7 +16,7 @@ pub fn get_tasks(ctx: &mut Context) -> Result {
         .create(true)
         .open(&ctx.todo_file)
         .context(format!("file: {:?}", ctx.todo_file))
-        .map_err(|_| ErrorType::FileOpenError)?;
+        .map_err(|_| ErrorType::FileOpenError(format!("{:?}", ctx.todo_file)))?;
     // create string buffer and read file into it
     let mut buf = String::new();
     todo_file
@@ -44,7 +44,7 @@ pub fn get_done(ctx: &mut Context) -> Result {
         .create(true)
         .open(&ctx.done_file)
         .context(format!("file: {:?}", ctx.done_file))
-        .map_err(|_| ErrorType::FileOpenError)?;
+        .map_err(|_| ErrorType::FileOpenError(format!("{:?}", ctx.done_file)))?;
     // create string buffer and read file into it
     let mut buf = String::new();
     done_file.read_to_string(&mut buf)?;
@@ -72,7 +72,7 @@ where
         .append(append)
         .open(&ctx.todo_file)
         .context(format!("file: {:?}", ctx.todo_file))
-        .map_err(|_| ErrorType::FileOpenError)?;
+        .map_err(|_| ErrorType::FileOpenError(format!("{:?}", ctx.todo_file)))?;
     write!(file, "{}", buf.into()).map_err(|_| ErrorType::FileWriteError)?;
     if append {
         writeln!(file).map_err(|_| ErrorType::FileWriteError)?; // Add newline at end
