@@ -88,10 +88,10 @@ pub fn init_env_logger(verbose: u8) {
             lbracket = subtle_style.value("["),
             rbracket = subtle_style.value("]"),
             colon = subtle_style.value(":"),
-            file = gray_style.value(record.file().unwrap_or("<unnamed>")),
+            file = gray_style.value(record.file().unwrap_or_default()),
             time = gray_style.value(time),
             level = level,
-            line_no = gray_style.value(record.line().unwrap_or(0)),
+            line_no = gray_style.value(record.line().unwrap_or_default()),
             record_args = &record.args(),
         )
     })
