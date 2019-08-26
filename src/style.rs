@@ -1,4 +1,8 @@
-use crate::{cli::*, util::get_pri_name};
+use crate::{
+    cli::*,
+    color::{self, StyleContext},
+    util::get_pri_name,
+};
 use serde::Deserialize;
 use termcolor::{Color, ColorSpec};
 
@@ -82,6 +86,82 @@ pub fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
     color.set_intense(style.intense.unwrap_or(false));
     color.set_underline(style.underline.unwrap_or(false));
     Ok(color)
+}
+
+pub fn get_stylespec(name: &str, ctx: &Context) -> Result<color::StyleContext> {
+    let default_style = Style::default(&name);
+    let style = ctx
+        .styles
+        .iter()
+        .find(|i| i.name.to_ascii_lowercase() == name)
+        .unwrap_or(&default_style);
+    let mut color_style = StyleContext::default();
+    if let Some(fg) = style.color_fg {
+        color_style.add(color::StyleSpec::Fg(color::Color::Ansi256(fg)));
+    }
+    if let Some(bg) = style.color_bg {
+        color_style.add(color::StyleSpec::Bg(color::Color::Ansi256(bg)));
+    }
+    if style.bold == Some(true) {
+        color_style.add(color::StyleSpec::Bold);
+    }
+    if style.underline == Some(true) {
+        color_style.add(color::StyleSpec::Underline);
+    }
+    Ok(color_style)
+}
+
+pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
+    for task in &ctx.tasks.0 {
+        let line = &task.raw;
+        let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
+        let color = if task.parsed.finished {
+            get_stylespec("done", ctx)?
+        } else {
+            get_stylespec(&pri, ctx)?
+        };
+        color.write_to(buf)?;
+        write!(
+            buf,
+            "{:0ct$} ",
+            &task.id,
+            ct = ctx.task_ct.to_string().len()
+        )?;
+        let mut words = line.split_whitespace().peekable();
+        while let Some(word) = words.next() {
+            let first_char = word.chars().next();
+            let prev_color = color;
+            match first_char {
+                Some('+') => {
+                    if ctx.opts.hide_project % 2 == 0 {
+                        let proj_style = get_stylespec("project", ctx)?;
+                        proj_style.write_to(buf)?;
+                        write!(buf, "{}", word)?;
+                        prev_color.write_difference(buf, &proj_style)?;
+                    }
+                }
+                Some('@') => {
+                    if ctx.opts.hide_context % 2 == 0 {
+                        let ctx_style = get_stylespec("context", ctx)?;
+                        ctx_style.write_to(buf)?;
+                        write!(buf, "{}", word)?;
+                        prev_color.write_difference(buf, &ctx_style)?;
+                    }
+                }
+                _ => {
+                    write!(buf, "{}", word)?;
+                }
+            }
+            if words.peek().is_some() {
+                write!(buf, " ")?;
+            }
+        }
+        if task.parsed.priority < 26 || task.parsed.finished {
+            StyleContext::default().write_to(buf)?;
+        }
+        writeln!(buf)?;
+    }
+    Ok(())
 }
 
 /// Format output and add color to priorities, projects and contexts

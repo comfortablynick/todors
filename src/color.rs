@@ -24,6 +24,8 @@ pub enum Color {
     White,
     /// Make the text bright black
     Black,
+    /// Provide ANSI 256 color value
+    Ansi256(u8),
     /// Provide a 256 color table text color value
     RGB(u8, u8, u8),
 }
@@ -32,7 +34,7 @@ pub enum Color {
 ///
 /// Defines the range of possible styles
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum Style {
+pub enum StyleSpec {
     /// Reset text to plain terminal style; ANSI code 00 equivalent
     Reset,
     /// Bold text in the terminal; ANSI code 01 equivalent
@@ -84,6 +86,7 @@ impl StyleContext {
                     Magenta => write!(w, e!("35"))?,
                     Cyan => write!(w, e!("36"))?,
                     White => write!(w, e!("37"))?,
+                    Ansi256(n) => write!(w, e!("38", "5", "{}"), n)?,
                     RGB(r, g, b) => write!(w, e!("38", "2", "{};{};{}"), r, g, b)?,
                 }
             }
@@ -97,6 +100,7 @@ impl StyleContext {
                     Magenta => write!(w, e!("45"))?,
                     Cyan => write!(w, e!("46"))?,
                     White => write!(w, e!("47"))?,
+                    Ansi256(n) => write!(w, e!("48", "5", "{}"), n)?,
                     RGB(r, g, b) => write!(w, e!("48", "2", "{};{};{}"), r, g, b)?,
                 }
             }
@@ -128,8 +132,8 @@ impl StyleContext {
         Ok(())
     }
 
-    pub fn add(&mut self, style: Style) {
-        use Style::*;
+    pub fn add(&mut self, style: StyleSpec) {
+        use StyleSpec::*;
         match style {
             Fg(color) => self.fg = Some(color),
             Bg(color) => self.bg = Some(color),
@@ -154,16 +158,16 @@ impl Default for StyleContext {
     }
 }
 
-impl<'a> Extend<&'a Style> for StyleContext {
-    fn extend<E: IntoIterator<Item = &'a Style>>(&mut self, styles: E) {
+impl<'a> Extend<&'a StyleSpec> for StyleContext {
+    fn extend<E: IntoIterator<Item = &'a StyleSpec>>(&mut self, styles: E) {
         for style in styles {
             self.add(*style)
         }
     }
 }
 
-impl<'a> FromIterator<&'a Style> for StyleContext {
-    fn from_iter<I: IntoIterator<Item = &'a Style>>(iter: I) -> StyleContext {
+impl<'a> FromIterator<&'a StyleSpec> for StyleContext {
+    fn from_iter<I: IntoIterator<Item = &'a StyleSpec>>(iter: I) -> StyleContext {
         let mut context = StyleContext::default();
         for style in iter {
             context.add(*style);

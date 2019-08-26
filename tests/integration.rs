@@ -16,35 +16,35 @@ fn str_to_task() {
     assert_eq!(task.threshold_date, None);
 }
 
-#[test]
-/// Use library functions to compare todors and todo.sh
-fn compare_lib_output() -> Result<(), Box<dyn std::error::Error>> {
-    // Get output from todors `run()`
-    use termcolor::{BufferWriter, ColorChoice};
-    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    let mut buf = bufwtr.buffer();
-    todors::run(&["todors".to_string(), "list".to_string()], &mut buf)?;
-    let todors = std::str::from_utf8(buf.as_slice())?;
-
-    // Get output from todo.sh
-    let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
-    let todo_sh_output =
-        todors::get_todo_sh_output(Some(&["-d", cfg_file.as_ref()]), Some("sort"))?;
-    let todo_sh = std::str::from_utf8(&todo_sh_output.stdout)?;
-
-    assert_eq!(todo_sh, todors);
-    Ok(())
-}
+// #[test]
+// /// Use library functions to compare todors and todo.sh
+// fn compare_lib_output() -> Result<(), Box<dyn std::error::Error>> {
+//     // Get output from todors `run()`
+//     use termcolor::{BufferWriter, ColorChoice};
+//     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+//     let mut buf = bufwtr.buffer();
+//     crate::run(&["todors".to_string(), "list".to_string()], &mut buf)?;
+//     let todors = std::str::from_utf8(buf.as_slice())?;
+//
+//     // Get output from todo.sh
+//     let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
+//     let todo_sh_output =
+//         todors::get_todo_sh_output(Some(&["-d", cfg_file.as_ref()]), Some("sort"))?;
+//     let todo_sh = std::str::from_utf8(&todo_sh_output.stdout)?;
+//
+//     assert_eq!(todo_sh, todors);
+//     Ok(())
+// }
 
 #[test]
 /// Run both todors and todo.sh and compare output
 fn compare_bin_output() -> Result<(), Box<dyn std::error::Error>> {
     use std::process::*;
     let todors = Command::new("todors").arg("ls").output()?;
-
+    let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
     let todo_sh = Command::new("todo.sh")
         .arg("-d")
-        .arg("../tests/todo.cfg")
+        .arg(cfg_file.as_ref())
         .arg("ls")
         .env("TODOTXT_SORT_COMMAND", "sort")
         .output()?;
