@@ -64,8 +64,7 @@ pub fn list<T>(
     list_all: bool,
 ) -> Result
 where
-    T: std::io::Write,
-    T: termcolor::WriteColor,
+    T: std::io::Write + termcolor::WriteColor,
 {
     // TODO: extract filter and sort logic so I don't have to repeat it
     ctx.tasks.retain(|t| !t.is_blank());

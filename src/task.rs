@@ -135,8 +135,7 @@ impl Task {
     /// Create new task from string and ID
     pub fn new<T>(id: usize, raw_text: T) -> Self
     where
-        T: Into<String>,
-        T: Copy,
+        T: Into<String> + Copy,
     {
         Task {
             id,
