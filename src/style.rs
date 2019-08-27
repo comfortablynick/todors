@@ -142,10 +142,9 @@ pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
                         let proj_style = get_stylespec("project", ctx)?;
                         proj_style.write_to(buf)?;
                         write!(buf, "{}", word)?;
-                        if task.parsed.priority < 26 || task.parsed.finished {
+                        if color != reset {
                             reset.write_to(buf)?;
                         }
-                        // prev_color.write_difference(buf, &proj_style)?;
                         prev_color.write_to(buf)?;
                     }
                 }
@@ -154,10 +153,9 @@ pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
                         let ctx_style = get_stylespec("context", ctx)?;
                         ctx_style.write_to(buf)?;
                         write!(buf, "{}", word)?;
-                        if task.parsed.priority < 26 || task.parsed.finished {
+                        if color != reset {
                             reset.write_to(buf)?;
                         }
-                        // prev_color.write_difference(buf, &ctx_style)?;
                         prev_color.write_to(buf)?;
                     }
                 }

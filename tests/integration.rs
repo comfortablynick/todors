@@ -16,24 +16,24 @@ fn str_to_task() {
     assert_eq!(task.threshold_date, None);
 }
 
-// #[test]
-// /// Run both todors and todo.sh and compare output
-// fn compare_bin_output() -> Result<(), Box<dyn std::error::Error>> {
-//     use std::process::*;
-//     let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
-//     let todors = Command::new(todors_bin.as_ref()).args(&["-q"]).output()?;
-//     let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
-//     let todo_sh = Command::new("todo.sh")
-//         .args(&["-d", cfg_file.as_ref(), "ls"])
-//         .env("TODOTXT_SORT_COMMAND", "sort")
-//         .output()?;
-//
-//     assert_eq!(
-//         std::str::from_utf8(&todors.stdout)?,
-//         std::str::from_utf8(&todo_sh.stdout)?
-//     );
-//     Ok(())
-// }
+#[test]
+/// Run both todors and todo.sh and compare output
+fn compare_bin_output() -> Result<(), Box<dyn std::error::Error>> {
+    use std::process::*;
+    let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
+    let todors = Command::new(todors_bin.as_ref()).args(&["-q"]).output()?;
+    let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
+    let todo_sh = Command::new("todo.sh")
+        .args(&["-d", cfg_file.as_ref(), "ls"])
+        .env("TODOTXT_SORT_COMMAND", "sort")
+        .output()?;
+
+    assert_eq!(
+        std::str::from_utf8(&todors.stdout)?,
+        std::str::from_utf8(&todo_sh.stdout)?
+    );
+    Ok(())
+}
 
 #[test]
 /// Run both todors and todo.sh and compare output
