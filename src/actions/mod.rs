@@ -45,7 +45,7 @@ pub fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result 
                 exit(1)
             }
             Command::List { terms } => {
-                list(&terms, buf, ctx, false)?;
+                crate::actions::list::list_test(&terms, buf, ctx, false)?;
             }
             Command::Listall { terms } => {
                 get_done(ctx)?;

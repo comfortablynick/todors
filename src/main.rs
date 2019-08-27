@@ -23,17 +23,16 @@ fn main() -> Result<(), ExitFailure> {
     #[cfg(windows)]
     ansi_term::enable_ansi_support().expect("Enable ANSI support on Windows");
 
-    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
-    let mut buf = bufwtr.buffer();
-
     let opts = cli::parse(&args)?;
-
     if !opts.quiet {
         util::init_env_logger(opts.verbosity);
     }
     if opts.plain {
         std::env::set_var("TERM", "dumb");
     }
+    let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
+    let mut buf = bufwtr.buffer();
+
     let mut args = args;
     args.remove(0);
     log::info!("Running with args: {:?}", args);

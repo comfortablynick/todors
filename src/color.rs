@@ -2,7 +2,7 @@
 //! Borrowed heavily from:
 //! https://github.com/glfmn/glitter/blob/master/lib/color.rs
 use std::{
-    io,
+    env, io,
     iter::{Extend, FromIterator, IntoIterator},
 };
 
@@ -74,8 +74,20 @@ macro_rules! e {
 
 impl StyleContext {
     pub fn write_to<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
+        if env::var("TERM") == Ok("dumb".to_string()) {
+            return Ok(());
+        }
         if self != &Default::default() {
             use Color::*;
+            if self.bold {
+                write!(w, e!("1"))?;
+            }
+            if self.italics {
+                write!(w, e!("3"))?;
+            }
+            if self.underline {
+                write!(w, e!("4"))?;
+            }
             if let Some(fg) = self.fg {
                 match fg {
                     Black => write!(w, e!("30"))?,
@@ -104,15 +116,6 @@ impl StyleContext {
                     RGB(r, g, b) => write!(w, e!("48", "2", "{};{};{}"), r, g, b)?,
                 }
             }
-            if self.bold {
-                write!(w, e!("1"))?;
-            }
-            if self.italics {
-                write!(w, e!("3"))?;
-            }
-            if self.underline {
-                write!(w, e!("4"))?;
-            }
         } else {
             write!(w, e!())?;
         }
@@ -120,6 +123,9 @@ impl StyleContext {
     }
 
     pub fn write_difference<W: io::Write>(&self, w: &mut W, prev: &StyleContext) -> io::Result<()> {
+        if env::var("TERM") == Ok("dumb".to_string()) {
+            return Ok(());
+        }
         match Difference::between(&prev, &self) {
             Difference::Add(style) => style.write_to(w)?,
             Difference::Reset => {
@@ -128,7 +134,6 @@ impl StyleContext {
             }
             Difference::None => (),
         };
-
         Ok(())
     }
 
