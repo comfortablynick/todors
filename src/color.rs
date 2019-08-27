@@ -73,6 +73,12 @@ macro_rules! e {
 }
 
 impl StyleContext {
+    /// Create a new style specification with no colors or styles.
+    pub fn new() -> Self {
+        StyleContext::default()
+    }
+
+    /// Write style to io object.
     pub fn write_to<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
         if env::var("TERM") == Ok("dumb".to_string()) {
             return Ok(());
@@ -137,7 +143,7 @@ impl StyleContext {
         Ok(())
     }
 
-    pub fn add(&mut self, style: StyleSpec) {
+    pub fn add(&'_ mut self, style: StyleSpec) -> &'_ mut Self {
         use StyleSpec::*;
         match style {
             Fg(color) => self.fg = Some(color),
@@ -148,6 +154,7 @@ impl StyleContext {
             Number(_) => (),
             Reset => *self = Default::default(),
         }
+        self
     }
 }
 
@@ -166,7 +173,7 @@ impl Default for StyleContext {
 impl<'a> Extend<&'a StyleSpec> for StyleContext {
     fn extend<E: IntoIterator<Item = &'a StyleSpec>>(&mut self, styles: E) {
         for style in styles {
-            self.add(*style)
+            self.add(*style);
         }
     }
 }

@@ -112,9 +112,9 @@ pub fn get_stylespec(name: &str, ctx: &Context) -> Result<color::StyleContext> {
 }
 
 pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
-    let mut reset = StyleContext::default();
-    reset.add(color::StyleSpec::Reset);
-    for task in &ctx.tasks.0 {
+    let reset = StyleContext::default();
+    // for task in &ctx.tasks.0 {
+    for (i, task) in ctx.tasks.0.iter().enumerate() {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
         let color = if task.parsed.finished {
@@ -122,7 +122,11 @@ pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
         } else {
             get_stylespec(&pri, ctx)?
         };
-        color.write_to(buf)?;
+        // write newline if it's not the first line
+        if i > 0 {
+            writeln!(buf)?;
+        }
+        color.write_difference(buf, &reset)?;
         write!(
             buf,
             "{:0ct$} ",
@@ -149,7 +153,7 @@ pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
                         let ctx_style = get_stylespec("context", ctx)?;
                         ctx_style.write_to(buf)?;
                         write!(buf, "{}", word)?;
-                        reset.write_to(buf)?;
+                        // reset.write_to(buf)?;
                         // prev_color.write_difference(buf, &ctx_style)?;
                         prev_color.write_to(buf)?;
                     }
@@ -166,7 +170,7 @@ pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
             reset.write_to(buf)?;
         }
         // reset.write_to(buf)?;
-        writeln!(buf)?;
+        // writeln!(buf)?;
     }
     // reset.write_to(buf)?;
     Ok(())

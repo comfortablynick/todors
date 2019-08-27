@@ -145,9 +145,10 @@ where
     // fill buffer with formatted (colored) output
     fmt_test(buf, &ctx)?;
     // write footer
-    write!(
+    writeln!(buf, "\n--")?;
+    writeln!(
         buf,
-        "--\nTODO: {} of {} tasks shown\n",
+        "TODO: {} of {} tasks shown",
         ctx.tasks.len(),
         prefilter_task_ct,
     )?;
