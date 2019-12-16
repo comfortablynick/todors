@@ -7,7 +7,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-log = "0.4.8"
+log = "0.4.10"
 env_logger = "0.6.2"
 chrono = "0.4"
 dirs = "2.0"
