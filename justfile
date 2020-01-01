@@ -6,7 +6,7 @@ alias h := help
 alias t := todors
 alias q := runq
 
-dev := '1'
+dev := '0'
 
 # build release binary
 build:
@@ -19,7 +19,7 @@ install:
 	if [[ {{dev}} -eq "1" ]]; then
 		cargo run --release
 	else
-		cargo install -f
+		cargo install --path . -f
 	fi #
 
 # build release binary and run
