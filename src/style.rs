@@ -9,22 +9,22 @@ use termcolor::{Color, ColorSpec};
 #[derive(Debug, Deserialize)]
 /// Color settings for terminal output
 pub struct Style {
-    pub name:      String,
-    pub color_fg:  Option<u8>,
-    pub color_bg:  Option<u8>,
-    pub bold:      Option<bool>,
-    pub intense:   Option<bool>,
+    pub name: String,
+    pub color_fg: Option<u8>,
+    pub color_bg: Option<u8>,
+    pub bold: Option<bool>,
+    pub intense: Option<bool>,
     pub underline: Option<bool>,
 }
 
 impl Style {
     pub fn default(name: &str) -> Style {
         let mut default = Style {
-            name:      name.into(),
-            color_fg:  None,
-            color_bg:  None,
-            bold:      None,
-            intense:   None,
+            name: name.into(),
+            color_fg: None,
+            color_bg: None,
+            bold: None,
+            intense: None,
             underline: None,
         };
         if name.starts_with("pri") {
@@ -75,7 +75,7 @@ pub fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
         .find(|i| i.name.to_ascii_lowercase() == name)
         .unwrap_or(&default_style);
     let mut color = ColorSpec::new();
-    color.set_no_reset(true);
+    color.set_reset(false);
     if let Some(fg) = style.color_fg {
         color.set_fg(Some(Color::Ansi256(fg)));
     }

@@ -13,7 +13,7 @@ chrono = "0.4"
 dirs = "2.0"
 regex = "1"
 lazy_static = "1.3.0"
-termcolor = "1"
+termcolor = "1.1"
 todo-txt = "^1.3"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive"] }
@@ -26,5 +26,4 @@ clap = { version = "3.0.0-beta.1", git = "https://github.com/clap-rs/clap.git", 
 pretty_assertions = "0.6"
 
 [patch.crates-io]
-termcolor = { git = "https://github.com/comfortablynick/termcolor.git", branch = "no-reset" }
 shellexpand = { git = "https://github.com/NickHackman/shellexpand.git", branch = "fix-use-deprecated-std-env-home_dir" }
