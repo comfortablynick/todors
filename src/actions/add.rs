@@ -1,4 +1,4 @@
-use crate::{cli::*, task::Task};
+use crate::{cli::*, errors::Result, task::Task};
 use chrono::Utc;
 use std::io::{self, Write};
 
@@ -18,8 +18,8 @@ Project and context notation optional.
 Quotes optional."
         );
         Arg::positional("task", "TASK")
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .required(true)
     }
 }
@@ -40,8 +40,8 @@ Project and context notation optional.
 Quotes required."
         );
         Arg::positional("tasks", "TASKS")
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .value_delimiter("\n")
             .required(true)
     }

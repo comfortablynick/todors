@@ -10,10 +10,8 @@ pub use crate::{
     errors::{err_msg, Error, ErrorType, Result, ResultExt},
     long,
 };
-use clap::{
-    app_from_crate, crate_authors, crate_description, crate_name, crate_version, value_t, values_t,
-    AppSettings, ArgSettings,
-};
+use anyhow::anyhow;
+use clap::{app_from_crate, AppSettings, ArgSettings};
 // pub use failure::{err_msg, Error, ResultExt};
 pub use log::{debug, info, log_enabled, trace};
 pub use std::process::{exit, Command as ExtCommand, Output};
@@ -67,8 +65,8 @@ The quiet flag -q will override this setting and will silence log output."
     args.push(
         Arg::flag("verbose", 'v')
             .setting(ArgSettings::MultipleOccurrences)
-            .help(SHORT)
-            .long_help(LONG),
+            .about(SHORT)
+            .long_about(LONG),
     );
 }
 
@@ -82,8 +80,8 @@ The arguments -vvvq will produce no console debug output."
     );
     args.push(
         Arg::flag("quiet", 'q')
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .overrides_with("verbosity"),
     );
 }
@@ -96,7 +94,7 @@ Plain mode turns off colors and overrides environment settings
 that control terminal colors. Color settings in config will
 have no effect."
     );
-    args.push(Arg::flag("plain", 'p').help(SHORT).long_help(LONG));
+    args.push(Arg::flag("plain", 'p').about(SHORT).long_about(LONG));
 }
 
 fn flag_preserve_line_numbers(args: &mut Vec<Arg>) {
@@ -110,8 +108,8 @@ remain blank.
     );
     args.push(
         Arg::flag("preserve-line-numbers", 'N')
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .overrides_with("remove-blank-lines"),
     );
 }
@@ -125,8 +123,8 @@ deleted, the following tasks will be moved up one line."
     );
     args.push(
         Arg::flag("remove-blank-lines", 'n')
-            .help(SHORT)
-            .long_help(LONG),
+            .about(SHORT)
+            .long_about(LONG),
     );
 }
 
@@ -137,7 +135,7 @@ fn flag_hide_context(args: &mut Vec<Arg>) {
 Hide task contexts from output. Use twice to unhide contexts, which
 returns to the default behavior of showing contexts."
     );
-    args.push(Arg::flag("hide-context", '@').help(SHORT).long_help(LONG));
+    args.push(Arg::flag("hide-context", '@').about(SHORT).long_about(LONG));
 }
 
 fn flag_hide_project(args: &mut Vec<Arg>) {
@@ -147,7 +145,7 @@ fn flag_hide_project(args: &mut Vec<Arg>) {
 Hide task projects from output. Use twice to unhide projects, which
 returns to the default behavior of showing projects."
     );
-    args.push(Arg::flag("hide-project", '+').help(SHORT).long_help(LONG));
+    args.push(Arg::flag("hide-project", '+').about(SHORT).long_about(LONG));
 }
 
 fn flag_hide_priority(args: &mut Vec<Arg>) {
@@ -158,7 +156,11 @@ Hide task priorities from output. Use twice to show priorities, which
 returns to the default behavior of showing priorities."
     );
 
-    args.push(Arg::flag("hide-priority", 'P').help(SHORT).long_help(LONG));
+    args.push(
+        Arg::flag("hide-priority", 'P')
+            .about(SHORT)
+            .long_about(LONG),
+    );
 }
 
 fn flag_date_on_add(args: &mut Vec<Arg>) {
@@ -166,8 +168,8 @@ fn flag_date_on_add(args: &mut Vec<Arg>) {
     const LONG: &str = long!("Prepend current date to new task");
     args.push(
         Arg::flag("date-on-add", 't')
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .overrides_with("no-date-on-add"),
     );
 }
@@ -177,8 +179,8 @@ fn flag_no_date_on_add(args: &mut Vec<Arg>) {
     const LONG: &str = long!("Don't prepend current date to new task");
     args.push(
         Arg::flag("no-date-on-add", 'T')
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .overrides_with("date-on-add"),
     );
 }
@@ -191,13 +193,11 @@ Location of toml config file. Various options can be set, including
 colors and styles."
     );
     args.push(
-        Arg::with_name("config-file")
-            .short('d')
-            .help(SHORT)
-            .long_help(LONG)
-            .takes_value(true)
-            .value_name("CONFIG_FILE")
-            .env("TODORS_CFG_FILE"),
+        Arg::short_option("config-file", 'd', "CONFIG_FILE")
+            .about(SHORT)
+            .long_about(LONG)
+            .env("TODORS_CFG_FILE")
+            .hide_env_values(true),
     );
 }
 
@@ -266,32 +266,36 @@ ACTIONS:
 
 /// Parse the clap matches into Command.
 /// Will return an error if required arguments are missing or invalid.
-fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches>), opt: &mut Opt) -> Result {
+fn handle_subcommand(
+    cmd: (&str, Option<&clap::ArgMatches>),
+    opt: &mut Opt,
+    // ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+) -> anyhow::Result<()> {
     match cmd {
         ("add", Some(arg)) => {
             opt.cmd = Some(Command::Add {
-                task: value_t!(arg.value_of("task"), String)?,
+                task: arg.value_of_t("task").map_err(|e| anyhow!(e))?,
             });
         }
         ("addm", Some(args)) => {
             opt.cmd = Some(Command::Addm {
-                tasks: values_t!(args.values_of("tasks"), String)?,
+                tasks: args.values_of_t("tasks").map_err(|e| anyhow!(e))?,
             });
         }
         ("del", Some(args)) => {
             opt.cmd = Some(Command::Delete {
-                item: value_t!(args.value_of("item"), usize)?,
-                term: value_t!(args.value_of("term"), String).ok(),
+                item: args.value_of_t("item").map_err(|e| anyhow!(e))?,
+                term: args.value_of_t("term").ok(),
             });
         }
         ("list", Some(args)) => {
             opt.cmd = Some(Command::List {
-                terms: values_t!(args.values_of("terms"), String).unwrap_or_default(),
+                terms: args.values_of_t("terms").unwrap_or_default(),
             });
         }
         ("listall", Some(args)) => {
             opt.cmd = Some(Command::Listall {
-                terms: values_t!(args.values_of("terms"), String).unwrap_or_default(),
+                terms: args.values_of_t("terms").unwrap_or_default(),
             });
         }
         ("", None) => (),
@@ -302,7 +306,7 @@ fn handle_subcommand(cmd: (&str, Option<&clap::ArgMatches>), opt: &mut Opt) -> R
 
 /// Parse clap matches into Opt object.
 /// The result will now be decoupled from clap, so it isn't needed elsewhere.
-pub fn parse<I>(arg_iter: I) -> Result<Opt>
+pub fn parse<I>(arg_iter: I) -> anyhow::Result<Opt>
 where
     I: IntoIterator,
     I::Item: Into<std::ffi::OsString> + Clone,
@@ -310,9 +314,9 @@ where
     let cli = build_app().get_matches_from(arg_iter);
     let mut opt = Opt::default();
     // set fields
-    opt.hide_context = value_t!(cli, "hide-context", u8).unwrap_or(0);
-    opt.hide_project = value_t!(cli, "hide-project", u8).unwrap_or(0);
-    opt.hide_priority = value_t!(cli, "hide-priority", u8).unwrap_or(0);
+    opt.hide_context = cli.value_of_t("hide-context").unwrap_or(0);
+    opt.hide_project = cli.value_of_t("hide-project").unwrap_or(0);
+    opt.hide_priority = cli.value_of_t("hide-priority").unwrap_or(0);
     opt.remove_blank_lines = cli.is_present("remove-blank-lines");
     opt.preserve_line_numbers = cli.is_present("preserve-line-numbers");
     opt.plain = cli.is_present("plain");
@@ -320,16 +324,10 @@ where
     opt.verbosity = cli.occurrences_of("verbose").try_into().unwrap();
     opt.date_on_add = cli.is_present("date-on-add");
     opt.no_date_on_add = cli.is_present("no-date-on-add");
-    opt.config_file = value_t!(cli, "config-file", std::path::PathBuf).ok();
+    opt.config_file = cli.value_of_t("config-file").ok();
 
     handle_subcommand(cli.subcommand(), &mut opt)?;
 
     debug!("{:#?}", opt);
-
-    if log_enabled!(log::Level::Trace) {
-        for m in cli.args {
-            trace!("{:#?}", m);
-        }
-    }
     Ok(opt)
 }

@@ -23,7 +23,7 @@ fn main() -> Result<(), ExitFailure> {
     #[cfg(windows)]
     ansi_term::enable_ansi_support().expect("Enable ANSI support on Windows");
 
-    let opts = cli::parse(&args)?;
+    let opts = cli::parse(&args).map_err(|e| failure::err_msg(e))?;
     if !opts.quiet {
         util::init_env_logger(opts.verbosity);
     }

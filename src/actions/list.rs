@@ -25,8 +25,8 @@ Each task must match all TERM(s) (logical AND); to display tasks that contain an
 
 Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).");
         Arg::positional("terms", "TERM")
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .multiple(true)
     }
 }
@@ -49,8 +49,8 @@ Displays all the lines in todo.txt AND done.txt that contain TERM(s) sorted by p
 Hides all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).  If no TERM specified, 
 lists entire todo.txt AND done.txt concatenated and sorted.");
         Arg::positional("terms", "TERM")
-            .help(SHORT)
-            .long_help(LONG)
+            .about(SHORT)
+            .long_about(LONG)
             .multiple(true)
     }
 }

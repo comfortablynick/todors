@@ -1,4 +1,4 @@
-use crate::{cli::*, task::Task, util};
+use crate::{cli::*, errors::Result, task::Task, util};
 use regex::Regex;
 
 pub fn command_del(cmds: &mut Vec<App>) {
@@ -18,7 +18,7 @@ If TERM specified, deletes only TERM from the task"
 
     fn arg_item() -> Arg {
         const SHORT: &str = "Line number of task to delete";
-        Arg::positional("item", "ITEM").help(SHORT).required(true)
+        Arg::positional("item", "ITEM").about(SHORT).required(true)
     }
 
     fn arg_term() -> Arg {
@@ -31,7 +31,9 @@ If TERM is specified, only the TERM is removed from ITEM.
 
 If no TERM is specified, the entire ITEM is deleted."
         );
-        Arg::positional("term", "TERM").help(SHORT).long_help(LONG)
+        Arg::positional("term", "TERM")
+            .about(SHORT)
+            .long_about(LONG)
     }
 }
 

@@ -14,7 +14,7 @@ pub use crate::{
 /// Context object
 pub fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
     expand_paths(ctx)?;
-    get_tasks(ctx)?;
+    get_tasks(ctx).map_err(|e| err_msg(e))?;
 
     // Debug print of all settings
     debug!("{:#?}", ctx.opts);
@@ -29,17 +29,17 @@ pub fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result 
         Some(command) => match command {
             Command::Add { task } => {
                 let new = add(task, ctx)?;
-                write_buf_to_file(new.raw, ctx, true)?;
+                write_buf_to_file(new.raw, ctx, true).map_err(|e| err_msg(e))?;
             }
             Command::Addm { tasks } => {
                 for task in tasks {
                     let new = add(task, ctx)?;
-                    write_buf_to_file(new.raw, ctx, true)?;
+                    write_buf_to_file(new.raw, ctx, true).map_err(|e| err_msg(e))?;
                 }
             }
             Command::Delete { item, term } => {
                 if delete::delete(item, &term, ctx)? {
-                    write_buf_to_file(tasks_to_string(ctx)?, ctx, false)?;
+                    write_buf_to_file(tasks_to_string(ctx)?, ctx, false).map_err(|e| err_msg(e))?;
                     return Ok(());
                 }
                 exit(1)
@@ -48,7 +48,7 @@ pub fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result 
                 crate::actions::list::list_test(&terms, buf, ctx, false)?;
             }
             Command::Listall { terms } => {
-                get_done(ctx)?;
+                get_done(ctx).map_err(|e| err_msg(e))?;
                 list(&terms, buf, ctx, true)?;
             }
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),

@@ -22,12 +22,12 @@ impl AppExt for App<'static> {
         App::new(name)
             .arg(
                 Arg::flag("quiet", 'q')
-                    .help("Silence debug messages")
+                    .about("Silence debug messages")
                     .overrides_with("quiet"),
             )
             .arg(
                 Arg::flag("verbose", 'v')
-                    .help("Output debug messages to console")
+                    .about("Output debug messages to console")
                     .overrides_with("verbose"),
             )
     }
@@ -37,40 +37,56 @@ impl AppExt for App<'static> {
 pub trait ArgExt {
     /// Create a boolean flag. Flags take no values.
     /// Flag name is assigned as long name.
-    /// Short name can be a blank string to use long name only.
+    /// If `short` == ' ', use long name only.
     fn flag(name: &'static str, short: char) -> Self;
+    /// Create a boolean flag. Flags take no values.
+    /// Flag will be accessible only with short name.
+    fn short_flag(name: &'static str, short: char) -> Self;
     /// Create an option. A option always accepts exactly one argument.
     /// A short name may be supplied. The `name` will be used as long name.
     /// If no long name is desired, create a clap::Arg from scratch.
     fn option(name: &'static str, value_name: &'static str) -> Self;
+    /// Create an option. A option always accepts exactly one argument.
+    /// Option will be accessible only with short name.
+    fn short_option(name: &'static str, short: char, value_name: &'static str) -> Self;
     /// Create a positional argument
     fn positional(name: &'static str, value_name: &'static str) -> Self;
     /// Indicate that any value given to this argument should be a number. If
     /// it's not a number, then clap will report an error to the end user.
     fn number(self) -> Self;
-    /// Sets argument long name to `None`.
-    /// May fail if used on positional arg
-    fn short_only(self, remove: bool) -> Self;
 }
 
 impl ArgExt for Arg<'static> {
     fn flag(name: &'static str, short: char) -> Self {
-        Arg::with_name(name)
-            .long(name)
-            .short(short)
-            .takes_value(false)
+        let arg = Arg::new(name).long(name).takes_value(false);
+        if short != ' ' {
+            return arg.short(short);
+        }
+        arg
+    }
+
+    fn short_flag(name: &'static str, short: char) -> Self {
+        Arg::new(name).short(short).takes_value(false)
     }
 
     fn option(name: &'static str, value_name: &'static str) -> Self {
-        Arg::with_name(name)
+        Arg::new(name)
             .long(name)
             .value_name(value_name)
             .takes_value(true)
             .number_of_values(1)
     }
 
+    fn short_option(name: &'static str, short: char, value_name: &'static str) -> Self {
+        Arg::new(name)
+            .short(short)
+            .value_name(value_name)
+            .takes_value(true)
+            .number_of_values(1)
+    }
+
     fn positional(name: &'static str, value_name: &'static str) -> Self {
-        Arg::with_name(name).value_name(value_name)
+        Arg::new(name).value_name(value_name)
     }
 
     fn number(self) -> Self {
@@ -79,12 +95,5 @@ impl ArgExt for Arg<'static> {
                 .map(|_| ())
                 .map_err(|err| err.to_string())
         })
-    }
-
-    fn short_only(mut self, remove: bool) -> Self {
-        if remove {
-            self.long = None;
-        }
-        self
     }
 }
