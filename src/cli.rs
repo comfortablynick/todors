@@ -1,8 +1,5 @@
-//! Define cli and methods used globally
+//! Define cli and methods
 //! Some methods adapted from ripgrep and cargo
-//!
-//! To be used as a wildcard 'prelude' import
-
 use crate::{
     actions::{add, delete, list},
     app::ArgExt,
@@ -10,11 +7,8 @@ use crate::{
 };
 use anyhow::anyhow;
 use clap::{app_from_crate, AppSettings, ArgSettings};
-// pub use failure::{err_msg, Error, ResultExt};
-pub use log::{debug, info, log_enabled, trace};
-pub use std::process::{exit, Command as ExtCommand, Output};
+use log::debug;
 use std::{convert::TryInto, path::PathBuf};
-// pub type Result<T = ()> = StdResult<T, Error>;
 pub type Arg = clap::Arg<'static>;
 pub type App = clap::App<'static>;
 

@@ -1,13 +1,10 @@
-use crate::{
-    cli::Output,
-    errors::{Error, Result, ResultExt},
-};
+use crate::errors::{Error, Result, ResultExt};
 use chrono::Local;
 use env_logger::{fmt::Color, Env};
 use log::{self, debug, Level};
 use std::{
     io::{stdin, stdout, Write},
-    process::Command as ExtCommand,
+    process::{Command, Output},
 };
 
 /// Get user response to question as 'y' or 'n'
@@ -29,7 +26,7 @@ pub fn ask_user_yes_no(prompt_ln: &str) -> Result<bool> {
 pub fn get_todo_sh_output(argv: Option<&[&str]>, sort_cmd: Option<&str>) -> Result<Output> {
     let sort_cmd = sort_cmd.unwrap_or("sort -f -k 2");
     debug!("TODOTXT_SORT_COMMAND={}", sort_cmd);
-    ExtCommand::new("todo.sh")
+    Command::new("todo.sh")
         .args(argv.unwrap_or_default())
         .env("TODOTXT_SORT_COMMAND", sort_cmd)
         .output()

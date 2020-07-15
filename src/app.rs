@@ -1,6 +1,6 @@
 //! Helper methods for defining clap apps
-
-use clap::{App, Arg};
+pub type Arg = clap::Arg<'static>;
+pub type App = clap::App<'static>;
 
 /// Add an extra space to long descriptions so that a blank line is inserted
 /// between flag descriptions in --help output.
@@ -17,7 +17,7 @@ pub trait AppExt {
     fn command(name: &'static str) -> Self;
 }
 
-impl AppExt for App<'static> {
+impl AppExt for App {
     fn command(name: &'static str) -> Self {
         App::new(name)
             .arg(
@@ -56,7 +56,7 @@ pub trait ArgExt {
     fn number(self) -> Self;
 }
 
-impl ArgExt for Arg<'static> {
+impl ArgExt for Arg {
     fn flag(name: &'static str, short: char) -> Self {
         let arg = Arg::new(name).long(name).takes_value(false);
         if short != ' ' {
