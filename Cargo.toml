@@ -5,6 +5,14 @@ authors = ["Nick Murphy <comfortablynick@gmail.com>"]
 description = "Command line interface using the todo.txt format"
 edition = "2018"
 publish = false
+autobins = false
+
+[lib]
+doctest = false
+
+[[bin]]
+name = "todors"
+path = "src/bin/main.rs"
 
 [dependencies]
 log = "0.4.8"

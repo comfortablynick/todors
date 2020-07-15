@@ -1,8 +1,14 @@
-use crate::cli::*;
+use crate::{
+    cli::Output,
+    errors::{Error, Result, ResultExt},
+};
 use chrono::Local;
 use env_logger::{fmt::Color, Env};
 use log::{self, debug, Level};
-use std::io::{stdin, stdout, Write};
+use std::{
+    io::{stdin, stdout, Write},
+    process::Command as ExtCommand,
+};
 
 /// Get user response to question as 'y' or 'n'
 pub fn ask_user_yes_no(prompt_ln: &str) -> Result<bool> {

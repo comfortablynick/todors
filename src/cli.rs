@@ -3,11 +3,9 @@
 //!
 //! To be used as a wildcard 'prelude' import
 
-use crate::actions::{add, delete, list};
-pub use crate::{
-    app::{AppExt, ArgExt},
-    config::Context,
-    errors::{err_msg, Error, ErrorType, Result, ResultExt},
+use crate::{
+    actions::{add, delete, list},
+    app::ArgExt,
     long,
 };
 use anyhow::anyhow;

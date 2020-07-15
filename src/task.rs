@@ -1,6 +1,6 @@
 //! Module containing Task objects and the Tasks container
 
-use crate::cli::*;
+use crate::{config::Context, errors::Result};
 use std::{
     cmp::Ordering,
     fmt::{self, Display},
@@ -124,11 +124,11 @@ impl Tasks {
 /// Contains parsed task data and original raw string
 pub struct Task {
     /// Line number in todo.txt file
-    pub id: usize,
+    pub id:     usize,
     /// Task data parsed by todo_txt crate
     pub parsed: todo_txt::Task,
     /// Original unmodified text
-    pub raw: String,
+    pub raw:    String,
 }
 
 impl Task {
@@ -233,7 +233,7 @@ pub enum SortByField {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SortBy {
     /// Sorting criterion
-    pub field: SortByField,
+    pub field:   SortByField,
     /// Whether to reverse the sort
     pub reverse: bool,
 }

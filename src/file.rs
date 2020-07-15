@@ -1,5 +1,5 @@
 use crate::{
-    cli::Context,
+    config::Context,
     task::{Task, Tasks},
 };
 use anyhow::{anyhow, Context as ErrContext};

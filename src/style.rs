@@ -1,6 +1,7 @@
 use crate::{
-    cli::*,
     color::{self, StyleContext},
+    config::Context,
+    errors::Result,
     util::get_pri_name,
 };
 use serde::Deserialize;
@@ -9,22 +10,22 @@ use termcolor::{Color, ColorSpec};
 #[derive(Debug, Deserialize)]
 /// Color settings for terminal output
 pub struct Style {
-    pub name: String,
-    pub color_fg: Option<u8>,
-    pub color_bg: Option<u8>,
-    pub bold: Option<bool>,
-    pub intense: Option<bool>,
+    pub name:      String,
+    pub color_fg:  Option<u8>,
+    pub color_bg:  Option<u8>,
+    pub bold:      Option<bool>,
+    pub intense:   Option<bool>,
     pub underline: Option<bool>,
 }
 
 impl Style {
     pub fn default(name: &str) -> Style {
         let mut default = Style {
-            name: name.into(),
-            color_fg: None,
-            color_bg: None,
-            bold: None,
-            intense: None,
+            name:      name.into(),
+            color_fg:  None,
+            color_bg:  None,
+            bold:      None,
+            intense:   None,
             underline: None,
         };
         if name.starts_with("pri") {

@@ -2,13 +2,16 @@ pub mod add;
 pub mod delete;
 pub mod list;
 
-pub use crate::{
+use crate::{
     actions::{add::add, list::list},
-    cli::*,
-    config::expand_paths,
+    cli::Command,
+    config::{expand_paths, Context},
+    errors::{err_msg, Result},
     file::{get_done, get_tasks, write_buf_to_file},
     task::tasks_to_string,
 };
+use log::{debug, info, trace};
+use std::process::exit;
 
 /// Direct the execution of the program based on the Command in the
 /// Context object

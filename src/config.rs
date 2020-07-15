@@ -1,4 +1,10 @@
-use crate::{cli::*, style::Style, task::Tasks};
+use crate::{
+    cli::Opt,
+    errors::{Error, ErrorType, Result, ResultExt},
+    style::Style,
+    task::Tasks,
+};
+use log::info;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 

@@ -1,4 +1,13 @@
-use crate::{cli::*, errors::Result, task::Task, util};
+use crate::{
+    app::{AppExt, ArgExt},
+    cli::{App, Arg},
+    config::Context,
+    errors::Result,
+    long,
+    task::Task,
+    util,
+};
+use log::info;
 use regex::Regex;
 
 pub fn command_del(cmds: &mut Vec<App>) {
