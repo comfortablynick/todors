@@ -2,15 +2,111 @@
 //! Some methods adapted from ripgrep and cargo
 use crate::{
     actions::{add, delete, list},
-    app::ArgExt,
     long,
 };
 use anyhow::anyhow;
 use clap::{app_from_crate, AppSettings, ArgSettings};
 use log::debug;
 use std::{convert::TryInto, path::PathBuf};
+
 pub type Arg = clap::Arg<'static>;
 pub type App = clap::App<'static>;
+
+/// Add an extra space to long descriptions so that a blank line is inserted
+/// between flag descriptions in --help output.
+#[macro_export]
+macro_rules! long {
+    ($lit:expr) => {
+        concat!($lit, " ")
+    };
+}
+
+/// Additional methods extending the clap App struct
+pub trait AppExt {
+    /// Subcommand with sensible defaults
+    fn command(name: &'static str) -> Self;
+}
+
+impl AppExt for App {
+    fn command(name: &'static str) -> Self {
+        App::new(name)
+            .arg(
+                Arg::flag("quiet", 'q')
+                    .about("Silence debug messages")
+                    .overrides_with("quiet"),
+            )
+            .arg(
+                Arg::flag("verbose", 'v')
+                    .about("Output debug messages to console")
+                    .overrides_with("verbose"),
+            )
+    }
+}
+
+/// Additional methods extending the clap Arg struct
+pub trait ArgExt {
+    /// Create a boolean flag. Flags take no values.
+    /// Flag name is assigned as long name.
+    /// If `short` == ' ', use long name only.
+    fn flag(name: &'static str, short: char) -> Self;
+    /// Create a boolean flag. Flags take no values.
+    /// Flag will be accessible only with short name.
+    fn short_flag(name: &'static str, short: char) -> Self;
+    /// Create an option. A option always accepts exactly one argument.
+    /// A short name may be supplied. The `name` will be used as long name.
+    /// If no long name is desired, create a clap::Arg from scratch.
+    fn option(name: &'static str, value_name: &'static str) -> Self;
+    /// Create an option. A option always accepts exactly one argument.
+    /// Option will be accessible only with short name.
+    fn short_option(name: &'static str, short: char, value_name: &'static str) -> Self;
+    /// Create a positional argument
+    fn positional(name: &'static str, value_name: &'static str) -> Self;
+    /// Indicate that any value given to this argument should be a number. If
+    /// it's not a number, then clap will report an error to the end user.
+    fn number(self) -> Self;
+}
+
+impl ArgExt for Arg {
+    fn flag(name: &'static str, short: char) -> Self {
+        let arg = Arg::new(name).long(name).takes_value(false);
+        if short != ' ' {
+            return arg.short(short);
+        }
+        arg
+    }
+
+    fn short_flag(name: &'static str, short: char) -> Self {
+        Arg::new(name).short(short).takes_value(false)
+    }
+
+    fn option(name: &'static str, value_name: &'static str) -> Self {
+        Arg::new(name)
+            .long(name)
+            .value_name(value_name)
+            .takes_value(true)
+            .number_of_values(1)
+    }
+
+    fn short_option(name: &'static str, short: char, value_name: &'static str) -> Self {
+        Arg::new(name)
+            .short(short)
+            .value_name(value_name)
+            .takes_value(true)
+            .number_of_values(1)
+    }
+
+    fn positional(name: &'static str, value_name: &'static str) -> Self {
+        Arg::new(name).value_name(value_name)
+    }
+
+    fn number(self) -> Self {
+        self.validator(|val| {
+            val.parse::<usize>()
+                .map(|_| ())
+                .map_err(|err| err.to_string())
+        })
+    }
+}
 
 /// Command line arguments
 #[derive(Debug, Default, Clone, Eq, PartialEq)]

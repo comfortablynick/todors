@@ -2,7 +2,6 @@
 extern crate lazy_static;
 
 pub mod actions;
-pub mod app;
 pub mod cli;
 pub mod color;
 pub mod config;
@@ -11,3 +10,4 @@ pub mod file;
 pub mod style;
 pub mod task;
 pub mod util;
+pub mod prelude;
