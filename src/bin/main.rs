@@ -1,28 +1,29 @@
+use clap::Clap;
 use exitfailure::ExitFailure;
-use log::error;
+use log::{error, info};
+use std::env;
 use termcolor::{BufferWriter, ColorChoice};
-use todors::{actions, cli, config, util};
+use todors::{actions::handle_command, config, util::init_env_logger};
 
 fn main() -> Result<(), ExitFailure> {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = env::args().collect();
 
-    // turn on ANSI escape support on Windows to use color
-    #[cfg(windows)]
-    ansi_term::enable_ansi_support().expect("Enable ANSI support on Windows");
-
-    let opts = cli::parse(&args).map_err(|e| failure::err_msg(e))?;
+    // let opts = cli::parse(&args).map_err(|e| failure::err_msg(e))?;
+    let opts = todors::app::Opt::parse();
     if !opts.quiet {
-        util::init_env_logger(opts.verbosity);
+        init_env_logger(opts.verbosity);
     }
+    info!("{:#?}", opts);
     if opts.plain {
-        std::env::set_var("TERM", "dumb");
+        env::set_var("TERM", "dumb");
     }
+
     let bufwtr = BufferWriter::stdout(ColorChoice::Auto);
     let mut buf = bufwtr.buffer();
 
     let mut args = args;
     args.remove(0);
-    log::info!("Running with args: {:?}", args);
+    info!("Running with args: {:?}", args);
     let cfg_file = opts
         .config_file
         .clone()
@@ -34,7 +35,7 @@ fn main() -> Result<(), ExitFailure> {
         styles: cfg.styles,
         ..Default::default()
     };
-    if let Err(e) = actions::handle_command(&mut ctx, &mut buf) {
+    if let Err(e) = handle_command(&mut ctx, &mut buf) {
         error!("{:?}", e); // log all errors here
         return Err(e.into());
     }

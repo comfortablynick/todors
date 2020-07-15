@@ -4,7 +4,7 @@ pub mod list;
 
 use crate::{
     actions::{add::add, list::list},
-    cli::Command,
+    app::SubCommand as Command,
     config::{expand_paths, Context},
     errors::{err_msg, Result},
     file::{get_done, get_tasks, write_buf_to_file},

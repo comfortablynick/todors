@@ -3,6 +3,7 @@ alias r := run
 alias b := build
 alias i := install
 alias h := help
+alias lh := longhelp
 alias t := todors
 alias q := runq
 
@@ -30,8 +31,13 @@ run:
 runq:
 	./target/release/todors -q
 
+# clap short help
 help:
-	./target/release/todors -h
+    cargo run --release -- -h
+
+# clap long help
+longhelp:
+    cargo run --release -- --help
 
 # run with verbosity (INFO)
 runv:

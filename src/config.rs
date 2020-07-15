@@ -1,5 +1,5 @@
 use crate::{
-    cli::Opt,
+    app::Opt,
     errors::{Error, ErrorType, Result, ResultExt},
     style::Style,
     task::Tasks,
