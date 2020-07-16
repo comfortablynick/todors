@@ -25,7 +25,7 @@ install:
 
 # build release binary and run
 run:
-	cargo run --release
+	cargo run --release -- -v
 
 # run with --quiet
 runq:

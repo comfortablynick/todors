@@ -38,7 +38,7 @@ If no TERM is specified, the entire ITEM is deleted."
     }
 }
 
-#[allow(clippy::needless_range_loop)]
+// #[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete word from task
 pub fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool> {
     if let Some(t) = term {

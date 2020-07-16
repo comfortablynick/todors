@@ -1,10 +1,10 @@
 //! Build cli app using #[derive(Clap)]
 
-use clap::Clap;
+use clap::{AppSettings, Clap};
 use std::path::PathBuf;
 
 #[derive(Clap, Debug, PartialEq, Default)]
-#[clap(author, about, version, max_term_width = 80)]
+#[clap(author, about, version, max_term_width = 80, setting = AppSettings::ColoredHelp)]
 pub struct Opt {
     /// Hide task contexts from output.
     ///
@@ -82,31 +82,51 @@ pub struct Opt {
 #[derive(Clap, Debug, Clone, Eq, PartialEq)]
 pub enum SubCommand {
     /// Add a line to your todo.txt file.
-    #[clap(long_about = r"THING I NEED TO DO +project @context
+    Add {
+        #[clap(
+            name = "TASK",
+            long_about = r"THING I NEED TO DO +project @context
 
 Adds THING I NEED TO DO to your todo.txt file on its own line.
 Project and context notation optional.
-Quotes optional.")]
-    Add {
+Quotes optional."
+        )]
         task: String,
     },
     /// Add multiple lines to your todo.txt file.
-    #[clap(long_about = r"FIRST THING I NEED TO DO +project1 @context
+    Addm {
+        #[clap(
+            name = "TASKS",
+            long_about = r"FIRST THING I NEED TO DO +project1 @context
 SECOND THING I NEED TO DO +project2 @context
 
 Adds FIRST THING I NEED TO DO on its own line and SECOND THING I NEED TO DO on its own line.
 Project and context notation optional.
-Quotes required.")]
-    Addm {
+Quotes required."
+        )]
         tasks: Vec<String>,
     },
+    /// TODO: unimplemented
     Addto,
+    /// TODO: unimplemented
     Append {
         item: usize,
         text: String,
     },
+    /// Delete the task on line of todo.txt.
+    #[clap(long_about = r"Delete the task on line of todo.txt.
+If TERM specified, deletes only TERM from the task")]
     Delete {
+        /// Line number of task to delete.
+        #[clap(name = "ITEM")]
         item: usize,
+        /// Optional term to remove from item.
+        #[clap(
+            name = "TERM",
+            long_about = r"If TERM is specified, only the TERM is removed from ITEM.
+
+If no TERM is specified, the entire ITEM is deleted."
+        )]
         term: Option<String>,
     },
     List {

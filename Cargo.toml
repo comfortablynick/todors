@@ -15,8 +15,7 @@ name = "todors"
 path = "src/bin/main.rs"
 
 [dependencies]
-log = "0.4.8"
-env_logger = "0.6.2"
+log = "0.4.11"
 chrono = "0.4"
 dirs = "2.0"
 regex = "1"
@@ -30,6 +29,7 @@ exitfailure = "0.5.1"
 shellexpand = "2"
 clap = "3.0.0-beta.1"
 anyhow = "1.0"
+rs-console-logger = { git = "https://github.com/comfortablynick/rs-console-logger.git" }
 
 [dev-dependencies]
 pretty_assertions = "0.6"

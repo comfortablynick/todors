@@ -1,9 +1,10 @@
 use clap::Clap;
 use exitfailure::ExitFailure;
 use log::{error, info};
+use rs_console_logger::Logger;
 use std::env;
 use termcolor::{BufferWriter, ColorChoice};
-use todors::{actions::handle_command, config, util::init_env_logger};
+use todors::{actions::handle_command, config};
 
 fn main() -> Result<(), ExitFailure> {
     let args: Vec<String> = env::args().collect();
@@ -11,7 +12,8 @@ fn main() -> Result<(), ExitFailure> {
     // let opts = cli::parse(&args).map_err(|e| failure::err_msg(e))?;
     let opts = todors::app::Opt::parse();
     if !opts.quiet {
-        init_env_logger(opts.verbosity);
+        // init_env_logger(opts.verbosity);
+        Logger::init(opts.verbosity).unwrap();
     }
     info!("{:#?}", opts);
     if opts.plain {
