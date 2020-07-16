@@ -1,18 +1,16 @@
 use clap::Clap;
-use exitfailure::ExitFailure;
 use log::{error, info};
 use rs_console_logger::Logger;
 use std::env;
 use termcolor::{BufferWriter, ColorChoice};
-use todors::{actions::handle_command, config};
+use todors::{actions::handle_command, config, prelude::*};
 
-fn main() -> Result<(), ExitFailure> {
+fn main() -> Result {
     let args: Vec<String> = env::args().collect();
 
     // let opts = cli::parse(&args).map_err(|e| failure::err_msg(e))?;
     let opts = todors::app::Opt::parse();
     if !opts.quiet {
-        // init_env_logger(opts.verbosity);
         Logger::init(opts.verbosity).unwrap();
     }
     info!("{:#?}", opts);
@@ -31,7 +29,7 @@ fn main() -> Result<(), ExitFailure> {
         .clone()
         .expect("could not find valid cfg file path");
     let cfg = config::read_config(cfg_file)?;
-    let mut ctx = config::Context {
+    let mut ctx = config::AppContext {
         opts,
         settings: cfg.general,
         styles: cfg.styles,
@@ -41,6 +39,6 @@ fn main() -> Result<(), ExitFailure> {
         error!("{:?}", e); // log all errors here
         return Err(e.into());
     }
-    bufwtr.print(&buf).map_err(failure::Error::from)?;
+    bufwtr.print(&buf)?;
     Ok(())
 }

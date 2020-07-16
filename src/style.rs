@@ -1,7 +1,7 @@
 use crate::{
     color::{self, StyleContext},
-    config::Context,
-    errors::Result,
+    config::AppContext,
+    prelude::*,
     util::get_pri_name,
 };
 use serde::Deserialize;
@@ -67,7 +67,7 @@ impl Ansi {
 }
 
 /// Get item style from preferences (or default)
-pub fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
+pub fn get_colors_from_style(name: &str, ctx: &AppContext) -> Result<ColorSpec> {
     // TODO: build ColorSpecs for each style in the configuration and iterate once
     let default_style = Style::default(&name);
     let style = ctx
@@ -89,7 +89,7 @@ pub fn get_colors_from_style(name: &str, ctx: &Context) -> Result<ColorSpec> {
     Ok(color)
 }
 
-pub fn get_stylespec(name: &str, ctx: &Context) -> Result<color::StyleContext> {
+pub fn get_stylespec(name: &str, ctx: &AppContext) -> Result<color::StyleContext> {
     let default_style = Style::default(&name);
     let style = ctx
         .styles
@@ -112,7 +112,7 @@ pub fn get_stylespec(name: &str, ctx: &Context) -> Result<color::StyleContext> {
     Ok(color_style)
 }
 
-pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
+pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &AppContext) -> Result {
     let reset = StyleContext::default();
     for (i, task) in ctx.tasks.0.iter().enumerate() {
         let line = &task.raw;
@@ -176,7 +176,7 @@ pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &Context) -> Result {
 }
 
 /// Format output and add color to priorities, projects and contexts
-pub fn format_buffer<T: termcolor::WriteColor>(buf: &mut T, ctx: &Context) -> Result {
+pub fn format_buffer<T: termcolor::WriteColor>(buf: &mut T, ctx: &AppContext) -> Result {
     for task in &ctx.tasks.0 {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();

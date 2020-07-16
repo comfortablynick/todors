@@ -1,18 +1,16 @@
-use crate::{
-    app::Opt,
-    errors::{Error, ErrorType, Result, ResultExt},
-    style::Style,
-    task::Tasks,
-};
+use crate::{app::Opt, prelude::*, style::Style, task::Tasks};
 use log::info;
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Default)]
 /// Wrapper that holds all current settings, args, and data
 /// that needs to be passed around to various functions. It takes
 /// the place of "global" variables.
-pub struct Context {
+pub struct AppContext {
     pub opts:        Opt,
     pub settings:    Settings,
     pub styles:      Vec<Style>,
@@ -47,11 +45,10 @@ pub fn read_config<P>(file_path: P) -> Result<Config>
 where
     P: AsRef<Path> + std::fmt::Debug,
 {
-    use std::io::prelude::*;
     let mut config_toml = String::new();
-    let mut file = std::fs::File::open(&file_path)
-        .context(format!("could not open file {:?}", file_path))
-        .map_err(|_| ErrorType::FileOpenError(format!("{:?}", file_path)))?;
+    let mut file =
+        std::fs::File::open(&file_path).context(format!("could not open file {:?}", file_path))?;
+    // .map_err(|_| ErrorType::FileOpenError(format!("{:?}", file_path)))?;
     info!("Found config file at {:?}", file_path);
     file.read_to_string(&mut config_toml)?;
     toml::from_str(&config_toml)
@@ -61,27 +58,27 @@ where
 
 /// Expand shell variables in paths and write to
 /// top-level variables in Context
-pub fn expand_paths(ctx: &mut Context) -> Result {
+pub fn expand_paths(ctx: &mut AppContext) -> Result {
     ctx.todo_file = ctx
         .settings
         .todo_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
         .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| ErrorType::NoneError("todo file".into()))?;
+        .ok_or_else(|| format_err!("Error expanding todo file path"))?;
     ctx.done_file = ctx
         .settings
         .done_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
         .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| ErrorType::NoneError("done file".into()))?;
+        .ok_or_else(|| format_err!("Error expanding todo file path"))?;
     ctx.report_file = ctx
         .settings
         .report_file
         .as_ref()
         .and_then(|s| shellexpand::env(s).ok())
         .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| ErrorType::NoneError("report file".into()))?;
+        .ok_or_else(|| format_err!("Error expanding report file path"))?;
     Ok(())
 }

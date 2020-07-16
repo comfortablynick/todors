@@ -1,5 +1,5 @@
 use crate::{
-    config::Context,
+    config::AppContext,
     long,
     prelude::*,
     style::{fmt_test, format_buffer},
@@ -59,13 +59,7 @@ lists entire todo.txt AND done.txt concatenated and sorted.");
 }
 
 /// List tasks from todo.txt file
-pub fn list<T>(
-    terms: &[String],
-    // buf: &mut termcolor::Buffer,
-    buf: &mut T,
-    ctx: &mut Context,
-    list_all: bool,
-) -> Result
+pub fn list<T>(terms: &[String], buf: &mut T, ctx: &mut AppContext, list_all: bool) -> Result
 where
     T: std::io::Write + termcolor::WriteColor,
 {
@@ -115,7 +109,7 @@ where
     Ok(())
 }
 
-pub fn list_test<T>(terms: &[String], buf: &mut T, ctx: &mut Context, list_all: bool) -> Result
+pub fn list_test<T>(terms: &[String], buf: &mut T, ctx: &mut AppContext, list_all: bool) -> Result
 where
     T: std::io::Write,
 {

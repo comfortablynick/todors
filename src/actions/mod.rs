@@ -5,9 +5,9 @@ pub mod list;
 use crate::{
     actions::{add::add, list::list},
     app::SubCommand as Command,
-    config::{expand_paths, Context},
-    errors::{err_msg, Result},
+    config::{expand_paths, AppContext},
     file::{get_done, get_tasks, write_buf_to_file},
+    prelude::*,
     task::tasks_to_string,
 };
 use log::{debug, info, trace};
@@ -15,9 +15,9 @@ use std::process::exit;
 
 /// Direct the execution of the program based on the Command in the
 /// Context object
-pub fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result {
+pub fn handle_command(ctx: &mut AppContext, buf: &mut termcolor::Buffer) -> Result {
     expand_paths(ctx)?;
-    get_tasks(ctx).map_err(|e| err_msg(e))?;
+    get_tasks(ctx)?;
 
     // Debug print of all settings
     debug!("{:#?}", ctx.opts);
@@ -32,17 +32,17 @@ pub fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result 
         Some(command) => match command {
             Command::Add { task } => {
                 let new = add(task, ctx)?;
-                write_buf_to_file(new.raw, ctx, true).map_err(|e| err_msg(e))?;
+                write_buf_to_file(new.raw, ctx, true)?;
             }
             Command::Addm { tasks } => {
                 for task in tasks {
                     let new = add(task, ctx)?;
-                    write_buf_to_file(new.raw, ctx, true).map_err(|e| err_msg(e))?;
+                    write_buf_to_file(new.raw, ctx, true)?;
                 }
             }
-            Command::Delete { item, term } => {
+            Command::Del { item, term } => {
                 if delete::delete(item, &term, ctx)? {
-                    write_buf_to_file(tasks_to_string(ctx)?, ctx, false).map_err(|e| err_msg(e))?;
+                    write_buf_to_file(tasks_to_string(ctx)?, ctx, false)?;
                     return Ok(());
                 }
                 exit(1)
@@ -51,7 +51,7 @@ pub fn handle_command(ctx: &mut Context, buf: &mut termcolor::Buffer) -> Result 
                 crate::actions::list::list_test(&terms, buf, ctx, false)?;
             }
             Command::Listall { terms } => {
-                get_done(ctx).map_err(|e| err_msg(e))?;
+                get_done(ctx)?;
                 list(&terms, buf, ctx, true)?;
             }
             Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),

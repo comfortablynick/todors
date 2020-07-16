@@ -4,66 +4,32 @@ use clap::{AppSettings, Clap};
 use std::path::PathBuf;
 
 #[derive(Clap, Debug, PartialEq, Default)]
-#[clap(author, about, version, max_term_width = 80, setting = AppSettings::ColoredHelp)]
+#[clap(author,
+       about,
+       version,
+       max_term_width = 80,
+       setting = AppSettings::ColoredHelp,
+       setting = AppSettings::DontCollapseArgsInUsage, // Doesn't seem to work
+       setting = AppSettings::UnifiedHelpMessage,
+       setting = AppSettings::DeriveDisplayOrder,
+       setting = AppSettings::VersionlessSubcommands,
+    )]
 pub struct Opt {
     /// Hide task contexts from output.
     ///
     /// Use twice to unhide contexts, which returns to the default
     /// behavior of showing contexts.
-    #[clap(short = "@", long, parse(from_occurrences))]
+    #[clap(name = "@", short, parse(from_occurrences))]
     pub hide_context:          u8,
     /// Hide task projects from output.
     ///
     /// Use twice to unhide projects, which returns to the default
     /// behavior of showing projects.
-    #[clap(short = "+", long, parse(from_occurrences))]
+    #[clap(name = "+", short, parse(from_occurrences))]
     pub hide_project:          u8,
-    /// Hide task priorities from output.
-    ///
-    /// Use twice to show priorities, which returns to the default
-    /// behavior of showing priorities.
-    #[clap(short = "P", long, parse(from_occurrences))]
-    pub hide_priority:         u8,
-    /// Don't preserve line (task) numbers.
-    ///
-    /// Opposite of -N. When a task is deleted, the following tasks will
-    /// be moved up one line.
-    #[clap(short = "n", long)]
-    pub remove_blank_lines:    bool,
-    /// Preserve line (task) numbers.
-    ///
-    /// This allows consistent access of the tasks by the same id each time.
-    /// When a task is deleted, it will remain blank.
-    #[clap(short = "N", long, overrides_with("remove-blank-lines"))]
-    pub preserve_line_numbers: bool,
-    /// Plain mode turns off colors.
-    ///
-    /// It overrides environment settings that control terminal colors.
-    /// Color settings in config will have no effect.
-    #[clap(short, long)]
-    pub plain:                 bool,
-    ///Increase log verbosity printed to console.
-    ///
-    /// Log verbosity increases each time the flag is found.
-    ///
-    /// For example: -v, -vv, -vvv
-    ///
-    /// The quiet flag -q will override this setting and will silence
-    /// log output.
-    #[clap(short, long = "verbose", parse(from_occurrences))]
-    pub verbosity:             u8,
-    /// Quiet debug messages on console.
-    ///
-    /// Overrides verbose (-v) setting. The arguments -vvvq will produce no
-    /// console debug output.
-    #[clap(short, long, overrides_with("verbose"))]
-    pub quiet:                 bool,
-    /// Prepend current date to new task.
-    #[clap(short = "t", long)]
-    pub date_on_add:           bool,
-    #[clap(short = "T", long, overrides_with("date-on-add"))]
-    /// Don't prepend current date to new task.
-    pub no_date_on_add:        bool,
+    /// Color mode
+    #[clap(short)]
+    pub color:                 bool,
     /// Location of toml config file.
     ///
     /// Various options can be set, including colors and styles.
@@ -75,6 +41,55 @@ pub struct Opt {
         hide_env_values = true
     )]
     pub config_file:           Option<PathBuf>,
+    /// Force actions without confirmation or input
+    #[clap(short)]
+    pub force:                 bool,
+    /// Hide task priorities from output.
+    ///
+    /// Use twice to show priorities, which returns to the default
+    /// behavior of showing priorities.
+    #[clap(name = "P", short, parse(from_occurrences))]
+    pub hide_priority:         u8,
+    /// Don't preserve line (task) numbers.
+    ///
+    /// Opposite of -N. When a task is deleted, the following tasks will
+    /// be moved up one line.
+    #[clap(name = "n", short)]
+    pub remove_blank_lines:    bool,
+    /// Preserve line (task) numbers.
+    ///
+    /// This allows consistent access of the tasks by the same id each time.
+    /// When a task is deleted, it will remain blank.
+    #[clap(name = "N", short, overrides_with("n"))]
+    pub preserve_line_numbers: bool,
+    /// Plain mode turns off colors.
+    ///
+    /// It overrides environment settings that control terminal colors.
+    /// Color settings in config will have no effect.
+    #[clap(short, overrides_with("c"))]
+    pub plain:                 bool,
+    ///Increase log verbosity printed to console.
+    ///
+    /// Log verbosity increases each time the flag is found.
+    ///
+    /// For example: -v, -vv, -vvv
+    ///
+    /// The quiet flag -q will override this setting and will silence
+    /// log output.
+    #[clap(short, parse(from_occurrences))]
+    pub verbosity:             u8,
+    /// Quiet debug messages on console.
+    ///
+    /// Overrides verbose (-v) setting. The arguments -vvvq will produce no
+    /// console debug output.
+    #[clap(short, overrides_with("v"))]
+    pub quiet:                 bool,
+    /// Prepend current date to new task.
+    #[clap(name = "t", short)]
+    pub date_on_add:           bool,
+    #[clap(name = "T", short, overrides_with("t"))]
+    /// Don't prepend current date to new task.
+    pub no_date_on_add:        bool,
     #[clap(subcommand)]
     pub cmd:                   Option<SubCommand>,
 }
@@ -83,14 +98,12 @@ pub struct Opt {
 pub enum SubCommand {
     /// Add a line to your todo.txt file.
     Add {
-        #[clap(
-            name = "TASK",
-            long_about = r"THING I NEED TO DO +project @context
-
-Adds THING I NEED TO DO to your todo.txt file on its own line.
-Project and context notation optional.
-Quotes optional."
-        )]
+        /// THING I NEED TO DO +project @context
+        ///
+        /// Adds THING I NEED TO DO to your todo.txt file on its own line.
+        /// Project and context notation optional.
+        /// Quotes optional.
+        #[clap(name = "TASK")]
         task: String,
     },
     /// Add multiple lines to your todo.txt file.
@@ -110,32 +123,58 @@ Quotes required."
     Addto,
     /// TODO: unimplemented
     Append {
+        /// Line number of todo.txt to append.
+        #[clap(name = "ITEM")]
         item: usize,
+        /// Text to append to ITEM.
+        #[clap(name = "TEXT")]
         text: String,
     },
-    /// Delete the task on line of todo.txt.
-    #[clap(long_about = r"Delete the task on line of todo.txt.
-If TERM specified, deletes only TERM from the task")]
-    Delete {
+    /// Delete a line in todo.txt.
+    ///
+    /// If TERM specified, deletes only the TERM from the ITEM.
+    #[clap(alias = "rm")]
+    Del {
         /// Line number of task to delete.
         #[clap(name = "ITEM")]
         item: usize,
         /// Optional term to remove from item.
-        #[clap(
-            name = "TERM",
-            long_about = r"If TERM is specified, only the TERM is removed from ITEM.
-
-If no TERM is specified, the entire ITEM is deleted."
-        )]
+        ///
+        /// If TERM is specified, only the TERM is removed from ITEM.
+        /// If no TERM is specified, the entire ITEM is deleted.
+        #[clap(name = "TERM")]
         term: Option<String>,
     },
+    /// Display all the lines in todo.txt with optional filtering.
+    ///
+    /// Sorted by priority with line numbers.
+    #[clap(alias = "ls")]
     List {
+        /// Term to filter task list by.
+        ///
+        /// Each task must match all TERM(s) (logical AND); to display tasks
+        /// that contain any TERM (logical OR), use "TERM1\|TERM2\|..." (with quotes),
+        /// or TERM1|TERM2 (unquoted).
+        ///
+        /// Hide all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).
+        #[clap(name = "TERM")]
         terms: Vec<String>,
     },
+    /// Display all lines in todo.txt AND done.txt with optional filtering.
+    ///
+    /// Sorted by priority with line numbers.
+    #[clap(alias = "lsa")]
     Listall {
+        /// Term to filter task list by.
+        ///
+        /// Each task must match all TERM(s) (logical AND); to display tasks
+        /// that contain any TERM (logical OR), use "TERM1\|TERM2\|..." (with quotes),
+        /// or TERM1|TERM2 (unquoted).
+        ///
+        /// Hide all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).
+        #[clap(name = "TERM")]
         terms: Vec<String>,
     },
-    Listpri {
-        priorities: Vec<String>,
-    },
+    #[clap(alias = "lsp")]
+    Listpri { priorities: Vec<String> },
 }

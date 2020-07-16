@@ -1,4 +1,4 @@
-use crate::{config::Context, long, prelude::*, task::Task};
+use crate::{config::AppContext, long, prelude::*, task::Task};
 use chrono::Utc;
 use std::io::{self, Write};
 
@@ -48,7 +48,7 @@ Quotes required."
 }
 
 /// Create task from raw input. Print confirmation and return to caller.
-pub fn add(task: String, ctx: &mut Context) -> Result<Task> {
+pub fn add(task: String, ctx: &mut AppContext) -> Result<Task> {
     let mut task = task;
     if task == "" {
         io::stdout().write_all(b"Add: ").unwrap();

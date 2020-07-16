@@ -1,4 +1,4 @@
-use crate::{config::Context, long, prelude::*, task::Task, util};
+use crate::{config::AppContext, long, prelude::*, task::Task, util};
 use log::info;
 use regex::Regex;
 
@@ -40,7 +40,7 @@ If no TERM is specified, the entire ITEM is deleted."
 
 // #[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete word from task
-pub fn delete(item: usize, term: &Option<String>, ctx: &mut Context) -> Result<bool> {
+pub fn delete(item: usize, term: &Option<String>, ctx: &mut AppContext) -> Result<bool> {
     if let Some(t) = term {
         let re = Regex::new(t).unwrap();
 

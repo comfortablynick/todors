@@ -1,4 +1,4 @@
-use crate::errors::{Error, Result, ResultExt};
+use crate::prelude::*;
 use log::{self, debug};
 use std::{
     io::{stdin, stdout, Write},
@@ -7,11 +7,12 @@ use std::{
 
 /// Get user response to question as 'y' or 'n'
 pub fn ask_user_yes_no(prompt_ln: &str) -> Result<bool> {
-    let mut cin = String::new();
-    stdout().write_all(prompt_ln.as_bytes())?;
-    stdout().flush()?;
-    stdin().read_line(&mut cin)?;
-    if let Some(c) = cin.to_lowercase().chars().next() {
+    let mut input = String::new();
+    let stdout = stdout();
+    let mut lock = stdout.lock();
+    lock.write_all(prompt_ln.as_bytes())?;
+    stdin().read_line(&mut input)?;
+    if let Some(c) = input.to_lowercase().chars().next() {
         debug!("User input: '{}'", c);
         if c == 'y' {
             return Ok(true);
@@ -28,8 +29,7 @@ pub fn get_todo_sh_output(argv: Option<&[&str]>, sort_cmd: Option<&str>) -> Resu
         .args(argv.unwrap_or_default())
         .env("TODOTXT_SORT_COMMAND", sort_cmd)
         .output()
-        .context("get_todo_sh_output(): error getting command output")
-        .map_err(Error::from)
+        .context("get_todo_sh_output() failed")
 }
 
 /// Get string priority name in the form of `pri_x`

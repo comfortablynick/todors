@@ -1,6 +1,6 @@
 //! Module containing Task objects and the Tasks container
 
-use crate::{config::Context, errors::Result};
+use crate::{config::AppContext, prelude::*};
 use std::{
     cmp::Ordering,
     fmt::{self, Display},
@@ -196,7 +196,7 @@ impl Display for Task {
 }
 
 /// Convert a slice of tasks to a newline-delimited string
-pub fn tasks_to_string(ctx: &mut Context) -> Result<String> {
+pub fn tasks_to_string(ctx: &mut AppContext) -> Result<String> {
     if ctx.opts.remove_blank_lines {
         ctx.tasks.retain(|t| !t.is_blank());
     }

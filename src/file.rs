@@ -1,20 +1,18 @@
 use crate::{
-    config::Context,
+    config::AppContext,
+    prelude::*,
     task::{Task, Tasks},
 };
-use anyhow::{anyhow, Context as ErrContext};
 use log::info;
 use std::{
     fs::OpenOptions,
     io::{Read, Write},
 };
 
-type Result<T = ()> = anyhow::Result<T>;
-
 // TODO: combine get_tasks and get_done since they are 90% the same
 /// Load todo.txt file and parse into Task objects.
 /// If the file doesn't exist, create it.
-pub fn get_tasks(ctx: &mut Context) -> Result {
+pub fn get_tasks(ctx: &mut AppContext) -> Result {
     // let mut task_ct = 0;
     OpenOptions::new()
         .read(true)
@@ -37,12 +35,12 @@ pub fn get_tasks(ctx: &mut Context) -> Result {
             );
             Ok(())
         })
-        .map_err(|e| anyhow!(e))
+        .map_err(|e| format_err!(e))
 }
 
 /// Load done.txt file and parse into Task objects.
 /// If the file doesn't exist, create it.
-pub fn get_done(ctx: &mut Context) -> Result {
+pub fn get_done(ctx: &mut AppContext) -> Result {
     OpenOptions::new()
         .read(true)
         .write(true)
@@ -64,11 +62,11 @@ pub fn get_done(ctx: &mut Context) -> Result {
             );
             Ok(())
         })
-        .map_err(|e| anyhow!(e))
+        .map_err(|e| format_err!(e))
 }
 
 /// Write tasks to file
-pub fn write_buf_to_file<T>(buf: T, ctx: &Context, append: bool) -> Result
+pub fn write_buf_to_file<T>(buf: T, ctx: &AppContext, append: bool) -> Result
 where
     T: Into<String>,
 {
