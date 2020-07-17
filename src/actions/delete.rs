@@ -1,42 +1,6 @@
-use crate::{config::AppContext, long, prelude::*, task::Task, util};
+use crate::{config::AppContext, prelude::*, task::Task, util};
 use log::info;
 use regex::Regex;
-
-pub fn command_del(cmds: &mut Vec<App>) {
-    const SHORT: &str = "Deletes the task on line of todo.txt";
-    const LONG: &str = long!(
-        "\
-Deletes the task on line of todo.txt.
-If TERM specified, deletes only TERM from the task"
-    );
-    cmds.push(
-        App::command("del")
-            .alias("rm")
-            .about(SHORT)
-            .long_about(LONG)
-            .args(&[arg_item(), arg_term()]),
-    );
-
-    fn arg_item() -> Arg {
-        const SHORT: &str = "Line number of task to delete";
-        Arg::positional("item", "ITEM").about(SHORT).required(true)
-    }
-
-    fn arg_term() -> Arg {
-        const SHORT: &str = "Optional term to remove from item";
-        const LONG: &str = long!(
-            "\
-Optional term to remove from item.
-
-If TERM is specified, only the TERM is removed from ITEM.
-
-If no TERM is specified, the entire ITEM is deleted."
-        );
-        Arg::positional("term", "TERM")
-            .about(SHORT)
-            .long_about(LONG)
-    }
-}
 
 // #[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete word from task

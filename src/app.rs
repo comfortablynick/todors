@@ -94,85 +94,97 @@ pub struct Opt {
     pub cmd:                   Option<SubCommand>,
 }
 
-#[derive(Clap, Debug, Clone, Eq, PartialEq)]
-pub enum SubCommand {
-    /// Add a line to your todo.txt file.
-    Add {
-        /// THING I NEED TO DO +project @context
-        ///
-        /// Adds THING I NEED TO DO to your todo.txt file on its own line.
-        /// Project and context notation optional.
-        /// Quotes optional.
-        #[clap(name = "TASK")]
-        task: String,
-    },
-    /// Add multiple lines to your todo.txt file.
-    Addm {
-        #[clap(
-            name = "TASKS",
-            long_about = r"FIRST THING I NEED TO DO +project1 @context
+const ADD_TASK: &str = "\
+THING I NEED TO DO +project @context
+
+Adds THING I NEED TO DO to your todo.txt file on its own line.
+Project and context notation optional.
+Quotes optional.";
+
+const ADDM_TASKS: &str = "\
+FIRST THING I NEED TO DO +project1 @context
 SECOND THING I NEED TO DO +project2 @context
 
-Adds FIRST THING I NEED TO DO on its own line and SECOND THING I NEED TO DO on its own line.
+Adds FIRST THING I NEED TO DO on its own line and
+SECOND THING I NEED TO DO on its own line.
+
 Project and context notation optional.
-Quotes required."
-        )]
+Quotes required.";
+
+const DEL_TERM: &str = "\
+Optional term to remove from ITEM.
+
+If TERM is specified, only the TERM is removed from ITEM.
+If no TERM is specified, the entire ITEM is deleted.";
+
+const LS_TERM: &str = "\
+Term to filter task list by.
+
+Each task must match all TERM(s) (logical AND);
+to display tasks that contain any TERM (logical OR),
+use \"TERM1\\|TERM2\\|...\" (with quotes), or TERM1|TERM2
+(unquoted).
+
+Hide all tasks that contain TERM(s) preceded by a minus
+sign (i.e. -TERM).";
+
+#[derive(Clap, Debug, Clone, Eq, PartialEq)]
+pub enum SubCommand {
+    /// Adds a line of text to todo.txt.
+    Add {
+        #[clap(name = "TASK", long_about = ADD_TASK)]
+        task: String,
+    },
+    /// Adds multiple lines of text to todo.txt.
+    Addm {
+        #[clap(name = "TASKS", long_about = ADDM_TASKS)]
         tasks: Vec<String>,
     },
-    /// TODO: unimplemented
+    /// Adds a line of text to any file located in the todo.txt directory.
     Addto,
-    /// TODO: unimplemented
+    /// Adds text to end of task.
     Append {
-        /// Line number of todo.txt to append.
+        /// Line number of todo.txt to append TEXT.
         #[clap(name = "ITEM")]
         item: usize,
         /// Text to append to ITEM.
         #[clap(name = "TEXT")]
         text: String,
     },
-    /// Delete a line in todo.txt.
-    ///
-    /// If TERM specified, deletes only the TERM from the ITEM.
+    /// Moves all done tasks from todo.txt to done.txt and removes blank lines.
+    Archive,
+    /// Removes duplicate lines from todo.txt.
+    Deduplicate,
+    /// Deletes a task or part of a task from todo.txt.
     #[clap(alias = "rm")]
     Del {
-        /// Line number of task to delete.
+        /// Line number in todo.txt.
         #[clap(name = "ITEM")]
         item: usize,
-        /// Optional term to remove from item.
-        ///
-        /// If TERM is specified, only the TERM is removed from ITEM.
-        /// If no TERM is specified, the entire ITEM is deleted.
-        #[clap(name = "TERM")]
+        #[clap(name = "TERM", long_about = DEL_TERM)]
         term: Option<String>,
     },
-    /// Display all the lines in todo.txt with optional filtering.
+    /// Deprioritizes (removes the priority) from the task(s) on line ITEM in todo.txt.
+    #[clap(alias = "dp")]
+    Depri {
+        /// Line number in todo.txt to remove priority.
+        #[clap(name = "ITEM")]
+        items: Vec<usize>,
+    },
+    /// Displays all the lines in todo.txt with optional filtering.
     ///
     /// Sorted by priority with line numbers.
     #[clap(alias = "ls")]
     List {
-        /// Term to filter task list by.
-        ///
-        /// Each task must match all TERM(s) (logical AND); to display tasks
-        /// that contain any TERM (logical OR), use "TERM1\|TERM2\|..." (with quotes),
-        /// or TERM1|TERM2 (unquoted).
-        ///
-        /// Hide all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).
-        #[clap(name = "TERM")]
+        #[clap(name = "TERM", long_about = LS_TERM)]
         terms: Vec<String>,
     },
-    /// Display all lines in todo.txt AND done.txt with optional filtering.
+    /// Displays all lines in todo.txt AND done.txt with optional filtering.
     ///
     /// Sorted by priority with line numbers.
     #[clap(alias = "lsa")]
     Listall {
-        /// Term to filter task list by.
-        ///
-        /// Each task must match all TERM(s) (logical AND); to display tasks
-        /// that contain any TERM (logical OR), use "TERM1\|TERM2\|..." (with quotes),
-        /// or TERM1|TERM2 (unquoted).
-        ///
-        /// Hide all tasks that contain TERM(s) preceded by a minus sign (i.e. -TERM).
-        #[clap(name = "TERM")]
+        #[clap(name = "TERM", long_about = LS_TERM)]
         terms: Vec<String>,
     },
     #[clap(alias = "lsp")]

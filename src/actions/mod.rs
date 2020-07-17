@@ -3,8 +3,11 @@ pub mod delete;
 pub mod list;
 
 use crate::{
-    actions::{add::add, list::list},
-    app::SubCommand as Command,
+    actions::{
+        add::add,
+        list::{list, list_test},
+    },
+    app::SubCommand,
     config::{expand_paths, AppContext},
     file::{get_done, get_tasks, write_buf_to_file},
     prelude::*,
@@ -30,33 +33,42 @@ pub fn handle_command(ctx: &mut AppContext, buf: &mut termcolor::Buffer) -> Resu
 
     match ctx.opts.cmd.clone() {
         Some(command) => match command {
-            Command::Add { task } => {
+            SubCommand::Add { task } => {
                 let new = add(task, ctx)?;
                 write_buf_to_file(new.raw, ctx, true)?;
             }
-            Command::Addm { tasks } => {
+            SubCommand::Addm { tasks } => {
                 for task in tasks {
                     let new = add(task, ctx)?;
                     write_buf_to_file(new.raw, ctx, true)?;
                 }
             }
-            Command::Del { item, term } => {
+            SubCommand::Addto => todo!(),
+            SubCommand::Append { item, text } => {
+                eprintln!("Appending: {:?} to task {}", text, item);
+                todo!()
+            }
+            SubCommand::Archive => todo!(),
+            SubCommand::Deduplicate => todo!(),
+            SubCommand::Depri { items } => {
+                eprintln!("Deprioritizing item(s): {:?}", items);
+                todo!()
+            }
+            SubCommand::Del { item, term } => {
                 if delete::delete(item, &term, ctx)? {
                     write_buf_to_file(tasks_to_string(ctx)?, ctx, false)?;
                     return Ok(());
                 }
                 exit(1)
             }
-            Command::List { terms } => {
-                crate::actions::list::list_test(&terms, buf, ctx, false)?;
+            SubCommand::List { terms } => {
+                list_test(&terms, buf, ctx, false)?;
             }
-            Command::Listall { terms } => {
+            SubCommand::Listall { terms } => {
                 get_done(ctx)?;
                 list(&terms, buf, ctx, true)?;
             }
-            Command::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
-            Command::Addto => info!("Adding to..."),
-            Command::Append { item, text } => info!("Appending: {:?} to task {}", text, item),
+            SubCommand::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
         },
         None => match &ctx.settings.default_action {
             Some(cmd) => match cmd.as_str() {
