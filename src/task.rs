@@ -29,10 +29,8 @@ impl IntoIterator for Tasks {
 }
 
 impl AddAssign for Tasks {
-    fn add_assign(&mut self, other: Self) {
-        for i in other {
-            self.0.push(i);
-        }
+    fn add_assign(&mut self, mut other: Self) {
+        self.0.append(&mut other.0);
     }
 }
 
@@ -236,4 +234,49 @@ pub struct SortBy {
     pub field:   SortByField,
     /// Whether to reverse the sort
     pub reverse: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+    use std::str::FromStr;
+    use todo_txt::{Date, Task};
+
+    const STR_TASK: &str =
+        "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31 t:2019-12-25";
+
+    #[test]
+    /// Test todo_txt library string -> task
+    fn str_to_task() {
+        let task = Task::from_str(STR_TASK).unwrap();
+        let mut expect = Task::default();
+        expect.subject = "Get new +pricing for +item @work".into();
+        expect.priority = 2;
+        expect.contexts = vec!["work".into()];
+        expect.projects = vec!["item".into(), "pricing".into()];
+        expect.create_date = Some(Date::from_ymd(2019, 12, 18));
+        expect.finish_date = None;
+        expect.finished = true;
+        expect.due_date = Some(Date::from_ymd(2019, 12, 31));
+        expect.threshold_date = Some(Date::from_ymd(2019, 12, 25));
+        assert_eq!(task, expect);
+    }
+
+    #[test]
+    /// Test todo_txt library string -> task
+    fn str_to_struct() {
+        let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31 t:2019-12-25";
+        let task = Task::from_str(line).unwrap();
+        let mut expect = Task::default();
+        expect.subject = "Get new +pricing for +item @work".into();
+        expect.priority = 2;
+        expect.contexts = vec!["work".into()];
+        expect.projects = vec!["item".into(), "pricing".into()];
+        expect.create_date = Some(Date::from_ymd(2019, 12, 18));
+        expect.finish_date = None;
+        expect.finished = true;
+        expect.due_date = Some(Date::from_ymd(2019, 12, 31));
+        expect.threshold_date = Some(Date::from_ymd(2019, 12, 25));
+        assert_eq!(task, expect);
+    }
 }

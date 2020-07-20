@@ -1,10 +1,7 @@
-use crate::{app::Opt, prelude::*, style::Style, task::Tasks};
+use crate::{app::Opt, prelude::*, style::Style, task::Tasks, util::read_file_to_string};
 use log::info;
 use serde::Deserialize;
-use std::{
-    io::Read,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default)]
 /// Wrapper that holds all current settings, args, and data
@@ -40,45 +37,44 @@ pub struct Config {
     pub styles:  Vec<Style>,
 }
 
-/// Read and process cfg from toml into Config object
-pub fn read_config<P>(file_path: P) -> Result<Config>
-where
-    P: AsRef<Path> + std::fmt::Debug,
-{
-    let mut config_toml = String::new();
-    let mut file =
-        std::fs::File::open(&file_path).context(format!("could not open file {:?}", file_path))?;
-    // .map_err(|_| ErrorType::FileOpenError(format!("{:?}", file_path)))?;
-    info!("Found config file at {:?}", file_path);
-    file.read_to_string(&mut config_toml)?;
-    toml::from_str(&config_toml)
-        .context("could not convert toml config data")
-        .map_err(Error::from)
+impl Config {
+    /// Read and process cfg from toml into Config object
+    pub fn from_toml_file<P>(file_path: P) -> Result<Self>
+    where
+        P: AsRef<Path> + std::fmt::Debug,
+    {
+        let contents = read_file_to_string(&file_path)?;
+        info!("Reading config from toml file {:?}", file_path);
+        toml::from_str(contents.as_str()).context("converting toml to config object")
+    }
 }
 
-/// Expand shell variables in paths and write to
-/// top-level variables in Context
-pub fn expand_paths(ctx: &mut AppContext) -> Result {
-    ctx.todo_file = ctx
-        .settings
-        .todo_file
-        .as_ref()
-        .and_then(|s| shellexpand::env(s).ok())
-        .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| format_err!("Error expanding todo file path"))?;
-    ctx.done_file = ctx
-        .settings
-        .done_file
-        .as_ref()
-        .and_then(|s| shellexpand::env(s).ok())
-        .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| format_err!("Error expanding todo file path"))?;
-    ctx.report_file = ctx
-        .settings
-        .report_file
-        .as_ref()
-        .and_then(|s| shellexpand::env(s).ok())
-        .map(|s| PathBuf::from(s.into_owned()))
-        .ok_or_else(|| format_err!("Error expanding report file path"))?;
-    Ok(())
+impl AppContext {
+    /// Expand shell variables in paths and write to
+    /// top-level variables in Context
+    pub fn expand_paths(&mut self) -> Result {
+        const ERR: &str = "Error expanding todo file path";
+        self.todo_file = self
+            .settings
+            .todo_file
+            .as_ref()
+            .and_then(|s| shellexpand::env(s).ok())
+            .map(|s| PathBuf::from(s.as_ref()))
+            .ok_or_else(|| format_err!(ERR))?;
+        self.done_file = self
+            .settings
+            .done_file
+            .as_ref()
+            .and_then(|s| shellexpand::env(s).ok())
+            .map(|s| PathBuf::from(s.as_ref()))
+            .ok_or_else(|| format_err!(ERR))?;
+        self.report_file = self
+            .settings
+            .report_file
+            .as_ref()
+            .and_then(|s| shellexpand::env(s).ok())
+            .map(|s| PathBuf::from(s.as_ref()))
+            .ok_or_else(|| format_err!(ERR))?;
+        Ok(())
+    }
 }

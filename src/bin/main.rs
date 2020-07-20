@@ -3,7 +3,11 @@ use log::info;
 use rs_console_logger::Logger;
 use std::env;
 use termcolor::{BufferWriter, ColorChoice};
-use todors::{actions::handle_command, config, prelude::*};
+use todors::{
+    actions::handle_command,
+    config::{AppContext, Config},
+    prelude::*,
+};
 
 fn main() -> Result {
     let args: Vec<String> = env::args().collect();
@@ -26,8 +30,8 @@ fn main() -> Result {
         .config_file
         .clone()
         .expect("could not find valid cfg file path");
-    let cfg = config::read_config(cfg_file)?;
-    let mut ctx = config::AppContext {
+    let cfg = Config::from_toml_file(cfg_file)?;
+    let mut ctx = AppContext {
         opts,
         settings: cfg.general,
         styles: cfg.styles,

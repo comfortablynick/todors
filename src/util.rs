@@ -1,7 +1,9 @@
 use crate::prelude::*;
-use log::{self, debug};
+use log::debug;
 use std::{
-    io::{stdin, stdout, Write},
+    fs::OpenOptions,
+    io::{stdin, stdout, Read, Write},
+    path::Path,
     process::{Command, Output},
 };
 
@@ -42,4 +44,19 @@ pub fn get_pri_name(pri: u8) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// Read file to string
+pub fn read_file_to_string<P>(file_path: P) -> Result<String>
+where
+    P: AsRef<Path> + std::fmt::Debug,
+{
+    OpenOptions::new()
+        .read(true)
+        .open(&file_path)
+        .and_then(|mut file| {
+            let mut buf = String::new();
+            file.read_to_string(&mut buf).map(|_| buf)
+        })
+        .with_context(|| format!("reading file {:?} to string", file_path))
 }

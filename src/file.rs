@@ -2,27 +2,16 @@ use crate::{
     config::AppContext,
     prelude::*,
     task::{Task, Tasks},
+    util::read_file_to_string,
 };
 use log::info;
-use std::{
-    fs::OpenOptions,
-    io::{Read, Write},
-};
+use std::{fs::OpenOptions, io::Write, path::Path};
 
 // TODO: combine get_tasks and get_done since they are 90% the same
 /// Load todo.txt file and parse into Task objects.
 /// If the file doesn't exist, create it.
 pub fn get_tasks(ctx: &mut AppContext) -> Result {
-    // let mut task_ct = 0;
-    OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(&ctx.todo_file)
-        .and_then(|mut file| {
-            let mut buf = String::new();
-            file.read_to_string(&mut buf).map(|_| buf)
-        })
+    read_file_to_string(&ctx.todo_file)
         .and_then(|b| {
             ctx.task_ct = 0;
             ctx.tasks = Tasks(
@@ -41,15 +30,7 @@ pub fn get_tasks(ctx: &mut AppContext) -> Result {
 /// Load done.txt file and parse into Task objects.
 /// If the file doesn't exist, create it.
 pub fn get_done(ctx: &mut AppContext) -> Result {
-    OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(&ctx.done_file)
-        .and_then(|mut file| {
-            let mut buf = String::new();
-            file.read_to_string(&mut buf).map(|_| buf)
-        })
+    read_file_to_string(&ctx.done_file)
         .and_then(|b| {
             ctx.task_ct = 0;
             ctx.done = Tasks(
@@ -66,21 +47,21 @@ pub fn get_done(ctx: &mut AppContext) -> Result {
 }
 
 /// Write tasks to file
-pub fn write_buf_to_file<T>(buf: T, ctx: &AppContext, append: bool) -> Result
+pub fn write_buf_to_file<T, P>(buf: T, file_path: P, append: bool) -> Result
 where
     T: Into<String>,
+    P: AsRef<Path> + std::fmt::Debug,
 {
-    let mut file = OpenOptions::new()
+    OpenOptions::new()
         .write(true)
         .truncate(!append)
         .append(append)
-        .open(&ctx.todo_file)
-        .with_context(|| format!("file: {:?}", ctx.todo_file))?;
-    write!(file, "{}", buf.into())?;
-    if append {
-        writeln!(file)?;
-    }
-    let action = if append { "Appended" } else { "Wrote" };
-    info!("{} tasks to file {:?}", action, ctx.todo_file);
+        .open(&file_path)
+        .and_then(|mut file| write!(file, "{}{}", buf.into(), if append { "\n" } else { "" }))?;
+    info!(
+        "{} tasks to file {:?}",
+        if append { "Appended" } else { "Wrote" },
+        file_path
+    );
     Ok(())
 }

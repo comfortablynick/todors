@@ -1,3 +1,5 @@
+//! Interface with todo.txt files
+
 pub mod actions;
 pub mod app;
 pub mod color;

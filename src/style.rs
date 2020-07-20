@@ -112,71 +112,11 @@ pub fn get_stylespec(name: &str, ctx: &AppContext) -> Result<color::StyleContext
     Ok(color_style)
 }
 
-pub fn fmt_test<W: std::io::Write>(buf: &mut W, ctx: &AppContext) -> Result {
-    let reset = StyleContext::default();
-    for (i, task) in ctx.tasks.0.iter().enumerate() {
-        let line = &task.raw;
-        let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
-        let color = if task.parsed.finished {
-            get_stylespec("done", ctx)?
-        } else {
-            get_stylespec(&pri, ctx)?
-        };
-        // write newline if it's not the first line
-        if i > 0 {
-            writeln!(buf)?;
-        }
-        color.write_difference(buf, &reset)?;
-        write!(
-            buf,
-            "{:0ct$} ",
-            &task.id,
-            ct = ctx.task_ct.to_string().len()
-        )?;
-        let mut words = line.split_whitespace().peekable();
-        while let Some(word) = words.next() {
-            let first_char = word.chars().next();
-            let prev_color = color;
-            match first_char {
-                Some('+') => {
-                    if ctx.opts.hide_project % 2 == 0 {
-                        let proj_style = get_stylespec("project", ctx)?;
-                        proj_style.write_to(buf)?;
-                        write!(buf, "{}", word)?;
-                        if color != reset {
-                            reset.write_to(buf)?;
-                        }
-                        prev_color.write_to(buf)?;
-                    }
-                }
-                Some('@') => {
-                    if ctx.opts.hide_context % 2 == 0 {
-                        let ctx_style = get_stylespec("context", ctx)?;
-                        ctx_style.write_to(buf)?;
-                        write!(buf, "{}", word)?;
-                        if color != reset {
-                            reset.write_to(buf)?;
-                        }
-                        prev_color.write_to(buf)?;
-                    }
-                }
-                _ => {
-                    write!(buf, "{}", word)?;
-                }
-            }
-            if words.peek().is_some() {
-                write!(buf, " ")?;
-            }
-        }
-        if task.parsed.priority < 26 || task.parsed.finished {
-            reset.write_to(buf)?;
-        }
-    }
-    Ok(())
-}
-
 /// Format output and add color to priorities, projects and contexts
-pub fn format_buffer<T: termcolor::WriteColor>(buf: &mut T, ctx: &AppContext) -> Result {
+pub fn format_buffer<W>(buf: &mut W, ctx: &AppContext) -> Result
+where
+    W: std::io::Write + termcolor::WriteColor,
+{
     for task in &ctx.tasks.0 {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();

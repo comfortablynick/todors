@@ -3,23 +3,22 @@ pub mod delete;
 pub mod list;
 
 use crate::{
-    actions::{
-        add::add,
-        list::{list, list_test},
-    },
+    actions::{add::add, list::list},
     app::SubCommand,
-    config::{expand_paths, AppContext},
+    config::AppContext,
     file::{get_done, get_tasks, write_buf_to_file},
     prelude::*,
     task::tasks_to_string,
 };
 use log::{debug, info, trace};
-use std::process::exit;
 
 /// Direct the execution of the program based on the Command in the
 /// Context object
-pub fn handle_command(ctx: &mut AppContext, buf: &mut termcolor::Buffer) -> Result {
-    expand_paths(ctx)?;
+pub fn handle_command<W>(ctx: &mut AppContext, buf: &mut W) -> Result
+where
+    W: std::io::Write + termcolor::WriteColor,
+{
+    ctx.expand_paths()?;
     get_tasks(ctx)?;
 
     // Debug print of all settings
@@ -35,12 +34,12 @@ pub fn handle_command(ctx: &mut AppContext, buf: &mut termcolor::Buffer) -> Resu
         Some(command) => match command {
             SubCommand::Add { task } => {
                 let new = add(task, ctx)?;
-                write_buf_to_file(new.raw, ctx, true)?;
+                write_buf_to_file(new.raw, &ctx.todo_file, true)?;
             }
             SubCommand::Addm { tasks } => {
                 for task in tasks {
                     let new = add(task, ctx)?;
-                    write_buf_to_file(new.raw, ctx, true)?;
+                    write_buf_to_file(new.raw, &ctx.todo_file, true)?;
                 }
             }
             SubCommand::Addto => todo!(),
@@ -56,13 +55,13 @@ pub fn handle_command(ctx: &mut AppContext, buf: &mut termcolor::Buffer) -> Resu
             }
             SubCommand::Del { item, term } => {
                 if delete::delete(item, &term, ctx)? {
-                    write_buf_to_file(tasks_to_string(ctx)?, ctx, false)?;
+                    write_buf_to_file(tasks_to_string(ctx)?, &ctx.todo_file, false)?;
                     return Ok(());
                 }
-                exit(1)
+                std::process::exit(1)
             }
             SubCommand::List { terms } => {
-                list_test(&terms, buf, ctx, false)?;
+                list(&terms, buf, ctx, false)?;
             }
             SubCommand::Listall { terms } => {
                 get_done(ctx)?;
@@ -73,7 +72,7 @@ pub fn handle_command(ctx: &mut AppContext, buf: &mut termcolor::Buffer) -> Resu
         None => match &ctx.settings.default_action {
             Some(cmd) => match cmd.as_str() {
                 "ls" | "list" => list(&[], buf, ctx, false)?,
-                _ => panic!("Unknown command: {:?}", cmd),
+                _ => bail!("Unknown command: {:?}", cmd),
             },
             None => {
                 info!("No command supplied; defaulting to List");
