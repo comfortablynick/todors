@@ -1,3 +1,4 @@
+//! # Interact and optionally edit the todo.txt file.
 pub mod add;
 pub mod delete;
 pub mod list;
@@ -10,7 +11,6 @@ use crate::{
     prelude::*,
     task::tasks_to_string,
 };
-use log::{debug, info, trace};
 
 /// Direct the execution of the program based on the Command in the
 /// Context object

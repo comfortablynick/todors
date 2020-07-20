@@ -3,10 +3,10 @@ use log::info;
 use regex::Regex;
 
 // #[allow(clippy::needless_range_loop)]
-/// Delete task by line number, or delete word from task
+/// Delete task by line number, or delete term from task
 pub fn delete(item: usize, term: &Option<String>, ctx: &mut AppContext) -> Result<bool> {
     if let Some(t) = term {
-        let re = Regex::new(t).unwrap();
+        let re = Regex::new(t)?;
 
         for i in 0..ctx.tasks.len() {
             let task = &ctx.tasks.0[i];
@@ -19,7 +19,7 @@ pub fn delete(item: usize, term: &Option<String>, ctx: &mut AppContext) -> Resul
                     return Ok(false);
                 }
                 let result = re.replace_all(&task.raw, "");
-                let new = Task::new(task.id, &result.into_owned()).normalize_whitespace();
+                let new = Task::new(task.id, result.as_ref()).normalize_whitespace();
                 info!("Task after editing: {}", new.raw);
                 println!("TODO: Removed '{}' from task.", t);
                 println!("{}", new);

@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use log::debug;
 use std::{
     fs::OpenOptions,
     io::{stdin, stdout, Read, Write},

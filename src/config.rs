@@ -1,5 +1,4 @@
 use crate::{app::Opt, prelude::*, style::Style, task::Tasks, util::read_file_to_string};
-use log::info;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 

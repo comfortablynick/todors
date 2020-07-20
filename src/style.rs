@@ -5,6 +5,7 @@ use crate::{
     util::get_pri_name,
 };
 use serde::Deserialize;
+use std::cmp::max;
 use termcolor::{Color, ColorSpec};
 
 #[derive(Debug, Deserialize)]
@@ -117,7 +118,8 @@ pub fn format_buffer<W>(buf: &mut W, ctx: &AppContext) -> Result
 where
     W: std::io::Write + termcolor::WriteColor,
 {
-    for task in &ctx.tasks.0 {
+    let leading_zeros = max(2, ctx.task_ct.to_string().len());
+    for task in &*ctx.tasks {
         let line = &task.raw;
         let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
         let color = if task.parsed.finished {
@@ -126,13 +128,8 @@ where
             get_colors_from_style(&pri, ctx)?
         };
         buf.set_color(&color)?;
-        // write line number (id)
-        write!(
-            buf,
-            "{:0ct$} ",
-            &task.id,
-            ct = ctx.task_ct.to_string().len()
-        )?;
+        // write line number
+        write!(buf, "{:0width$} ", task.id, width = leading_zeros)?;
         let mut words = line.split_whitespace().peekable();
         while let Some(word) = words.next() {
             let first_char = word.chars().next();

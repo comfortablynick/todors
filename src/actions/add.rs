@@ -1,3 +1,4 @@
+//! # Add tasks to todo.txt file
 use crate::{config::AppContext, prelude::*, task::Task};
 use chrono::Utc;
 use std::io::{self, Write};

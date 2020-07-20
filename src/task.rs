@@ -1,10 +1,11 @@
 //! Module containing Task objects and the Tasks container
 
 use crate::{config::AppContext, prelude::*};
+use regex::RegexSetBuilder;
 use std::{
     cmp::Ordering,
     fmt::{self, Display},
-    ops::AddAssign,
+    ops::{AddAssign, Deref, DerefMut},
 };
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
@@ -25,6 +26,20 @@ impl IntoIterator for Tasks {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl Deref for Tasks {
+    type Target = Vec<Task>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Tasks {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -86,6 +101,12 @@ impl Tasks {
             }
             true
         });
+    }
+
+    pub fn filter_terms_regex(&mut self, terms: &[String]) -> Result {
+        let regset = RegexSetBuilder::new(terms).case_insensitive(true).build()?;
+        self.0.retain(|t| regset.is_match(t.raw.as_str()));
+        Ok(())
     }
 
     /// Sort task list by slice of TaskSort objects
@@ -239,7 +260,7 @@ pub struct SortBy {
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
-    use std::str::FromStr;
+    use std::{collections::BTreeMap, str::FromStr};
     use todo_txt::{Date, Task};
 
     const STR_TASK: &str =
@@ -255,7 +276,6 @@ mod tests {
         expect.contexts = vec!["work".into()];
         expect.projects = vec!["item".into(), "pricing".into()];
         expect.create_date = Some(Date::from_ymd(2019, 12, 18));
-        expect.finish_date = None;
         expect.finished = true;
         expect.due_date = Some(Date::from_ymd(2019, 12, 31));
         expect.threshold_date = Some(Date::from_ymd(2019, 12, 25));
@@ -263,20 +283,22 @@ mod tests {
     }
 
     #[test]
-    /// Test todo_txt library string -> task
+    /// Test todo_txt library string -> task struct
     fn str_to_struct() {
-        let line = "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31 t:2019-12-25";
-        let task = Task::from_str(line).unwrap();
-        let mut expect = Task::default();
-        expect.subject = "Get new +pricing for +item @work".into();
-        expect.priority = 2;
-        expect.contexts = vec!["work".into()];
-        expect.projects = vec!["item".into(), "pricing".into()];
-        expect.create_date = Some(Date::from_ymd(2019, 12, 18));
-        expect.finish_date = None;
-        expect.finished = true;
-        expect.due_date = Some(Date::from_ymd(2019, 12, 31));
-        expect.threshold_date = Some(Date::from_ymd(2019, 12, 25));
+        let task = Task::from_str(STR_TASK).unwrap();
+        let expect = Task {
+            subject:        "Get new +pricing for +item @work".into(),
+            priority:       2,
+            contexts:       vec!["work".into()],
+            projects:       vec!["item".into(), "pricing".into()],
+            create_date:    Some(Date::from_ymd(2019, 12, 18)),
+            finish_date:    None,
+            finished:       true,
+            due_date:       Some(Date::from_ymd(2019, 12, 31)),
+            threshold_date: Some(Date::from_ymd(2019, 12, 25)),
+            hashtags:       Vec::new(),
+            tags:           BTreeMap::new(),
+        };
         assert_eq!(task, expect);
     }
 }

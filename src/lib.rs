@@ -1,5 +1,5 @@
 //! Interface with todo.txt files
-
+#![allow(clippy::pedantic)]
 pub mod actions;
 pub mod app;
 pub mod color;

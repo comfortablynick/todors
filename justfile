@@ -9,9 +9,17 @@ alias q := runq
 
 dev := '0'
 
+# automatically build on each change
+autobuild:
+    cargo watch -s 'just build'
+
 # build release binary
 build:
 	cargo build --release
+
+# start server for docs and update upon changes
+docs +PORT='40000':
+    cargo watch -s 'parallel ::: "cargo doc --release --color=always" "http target/doc -p {{PORT}}"'
 
 # build release binary ONLY during dev
 # otherwise install

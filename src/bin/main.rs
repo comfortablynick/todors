@@ -37,9 +37,7 @@ fn main() -> Result {
         styles: cfg.styles,
         ..Default::default()
     };
-    if let Err(e) = handle_command(&mut ctx, &mut buf) {
-        return Err(e.into());
-    }
+    handle_command(&mut ctx, &mut buf)?;
     bufwtr.print(&buf)?;
     Ok(())
 }
