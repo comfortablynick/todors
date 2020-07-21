@@ -27,11 +27,12 @@ clap = "3.0.0-beta.1"
 anyhow = "1.0"
 rs-console-logger = { git = "https://github.com/comfortablynick/rs-console-logger.git" }
 
+# dev dependencies
+# left in dependencies so we can see them in `cargo doc`
+assert_cmd = "1.0.1"
+pretty_assertions = "0.6"
+predicates = "1.0.5"
+
 [dependencies.serde]
 version = "1.0"
 features = ["derive"]
-
-[dev-dependencies]
-pretty_assertions = "0.6"
-assert_cmd = "1.0.1"
-predicates = "1.0.5"

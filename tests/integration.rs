@@ -1,9 +1,10 @@
-#[cfg(test)]
+use assert_cmd::prelude::*;
 use pretty_assertions::assert_eq;
+use todors::prelude::*;
 
 #[test]
 /// Run both todors and todo.sh and compare output
-fn compare_bin_output() -> Result<(), Box<dyn std::error::Error>> {
+fn compare_bin_output() -> Result {
     use std::process::*;
     let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
     let todors = Command::new(todors_bin.as_ref()).args(&["-q"]).output()?;
@@ -22,7 +23,7 @@ fn compare_bin_output() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 /// Run both todors and todo.sh and compare output
-fn compare_bin_test_output() -> Result<(), Box<dyn std::error::Error>> {
+fn compare_bin_test_output() -> Result {
     use std::process::*;
     let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
     let todors = Command::new(todors_bin.as_ref())
@@ -43,7 +44,7 @@ fn compare_bin_test_output() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 /// Run both todors and todo.sh and compare output
-fn compare_bin_plain_output() -> Result<(), Box<dyn std::error::Error>> {
+fn compare_bin_plain_output() -> Result {
     use std::process::*;
     let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
     let todors = Command::new(todors_bin.as_ref())

@@ -1,4 +1,7 @@
-//! Add terminal color to output
+//! # Terminal color
+//!
+//! Add color to terminal output  
+//!
 //! Borrowed heavily from:
 //! https://github.com/glfmn/glitter/blob/master/lib/color.rs
 use std::{
@@ -84,7 +87,6 @@ impl StyleContext {
             return Ok(());
         }
         if self != &Default::default() {
-            use Color::*;
             if self.bold {
                 write!(w, e!("1"))?;
             }
@@ -96,30 +98,30 @@ impl StyleContext {
             }
             if let Some(fg) = self.fg {
                 match fg {
-                    Black => write!(w, e!("30"))?,
-                    Red => write!(w, e!("31"))?,
-                    Green => write!(w, e!("32"))?,
-                    Yellow => write!(w, e!("33"))?,
-                    Blue => write!(w, e!("34"))?,
-                    Magenta => write!(w, e!("35"))?,
-                    Cyan => write!(w, e!("36"))?,
-                    White => write!(w, e!("37"))?,
-                    Ansi256(n) => write!(w, e!("38", "5", "{}"), n)?,
-                    RGB(r, g, b) => write!(w, e!("38", "2", "{};{};{}"), r, g, b)?,
+                    Color::Black => write!(w, e!("30"))?,
+                    Color::Red => write!(w, e!("31"))?,
+                    Color::Green => write!(w, e!("32"))?,
+                    Color::Yellow => write!(w, e!("33"))?,
+                    Color::Blue => write!(w, e!("34"))?,
+                    Color::Magenta => write!(w, e!("35"))?,
+                    Color::Cyan => write!(w, e!("36"))?,
+                    Color::White => write!(w, e!("37"))?,
+                    Color::Ansi256(n) => write!(w, e!("38", "5", "{}"), n)?,
+                    Color::RGB(r, g, b) => write!(w, e!("38", "2", "{};{};{}"), r, g, b)?,
                 }
             }
             if let Some(bg) = self.bg {
                 match bg {
-                    Black => write!(w, e!("40"))?,
-                    Red => write!(w, e!("41"))?,
-                    Green => write!(w, e!("42"))?,
-                    Yellow => write!(w, e!("43"))?,
-                    Blue => write!(w, e!("44"))?,
-                    Magenta => write!(w, e!("45"))?,
-                    Cyan => write!(w, e!("46"))?,
-                    White => write!(w, e!("47"))?,
-                    Ansi256(n) => write!(w, e!("48", "5", "{}"), n)?,
-                    RGB(r, g, b) => write!(w, e!("48", "2", "{};{};{}"), r, g, b)?,
+                    Color::Black => write!(w, e!("40"))?,
+                    Color::Red => write!(w, e!("41"))?,
+                    Color::Green => write!(w, e!("42"))?,
+                    Color::Yellow => write!(w, e!("43"))?,
+                    Color::Blue => write!(w, e!("44"))?,
+                    Color::Magenta => write!(w, e!("45"))?,
+                    Color::Cyan => write!(w, e!("46"))?,
+                    Color::White => write!(w, e!("47"))?,
+                    Color::Ansi256(n) => write!(w, e!("48", "5", "{}"), n)?,
+                    Color::RGB(r, g, b) => write!(w, e!("48", "2", "{};{};{}"), r, g, b)?,
                 }
             }
         } else {
@@ -144,15 +146,14 @@ impl StyleContext {
     }
 
     pub fn add(&'_ mut self, style: StyleSpec) -> &'_ mut Self {
-        use StyleSpec::*;
         match style {
-            Fg(color) => self.fg = Some(color),
-            Bg(color) => self.bg = Some(color),
-            Bold => self.bold = true,
-            Italic => self.italics = true,
-            Underline => self.underline = true,
-            Number(_) => (),
-            Reset => *self = Default::default(),
+            StyleSpec::Fg(color) => self.fg = Some(color),
+            StyleSpec::Bg(color) => self.bg = Some(color),
+            StyleSpec::Bold => self.bold = true,
+            StyleSpec::Italic => self.italics = true,
+            StyleSpec::Underline => self.underline = true,
+            StyleSpec::Number(_) => (),
+            StyleSpec::Reset => *self = Default::default(),
         }
         self
     }
