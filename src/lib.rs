@@ -27,7 +27,6 @@ pub mod app;
 pub mod color;
 pub mod config;
 pub mod file;
-pub mod logger;
 pub mod prelude;
 pub mod style;
 pub mod task;
