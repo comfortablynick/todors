@@ -1,4 +1,5 @@
-use crate::{app::Opt, prelude::*, style::Style, task::Tasks, util::read_file_to_string};
+//! Configure app settings and context object
+use crate::{app::Opt, file::read_file_to_string, prelude::*, style::Style, task::Tasks};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 

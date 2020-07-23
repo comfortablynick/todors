@@ -2,9 +2,12 @@ use crate::{
     config::AppContext,
     prelude::*,
     task::{Task, Tasks},
-    util::read_file_to_string,
 };
-use std::{fs::OpenOptions, io::Write, path::Path};
+use std::{
+    fs::OpenOptions,
+    io::{Read, Write},
+    path::Path,
+};
 
 // TODO: combine get_tasks and get_done since they are 90% the same
 /// Load todo.txt file and parse into Task objects.
@@ -57,4 +60,19 @@ where
         file_path
     );
     Ok(())
+}
+
+/// Read file to string
+pub fn read_file_to_string<P>(file_path: P) -> Result<String>
+where
+    P: AsRef<Path> + std::fmt::Debug,
+{
+    OpenOptions::new()
+        .read(true)
+        .open(&file_path)
+        .and_then(|mut file| {
+            let mut buf = String::new();
+            file.read_to_string(&mut buf).map(|_| buf)
+        })
+        .with_context(|| format!("reading file {:?} to string", file_path))
 }

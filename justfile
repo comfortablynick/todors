@@ -4,63 +4,66 @@ alias b := build
 alias i := install
 alias h := help
 alias lh := longhelp
-alias t := todors
 alias q := runq
 
-dev := '0'
+dev := '1'
 
 # automatically build on each change
 autobuild:
-    cargo watch -s 'just build'
+    cargo watch -x build
 
 # build release binary
 build:
-	cargo build --release
+    cargo build
+
+# rebuild docs
+doc:
+    cargo doc
+
+# rebuild docs and start simple static server
+docs +PORT='40000':
+    cargo doc && http target/doc -p {{PORT}}
 
 # start server for docs and update upon changes
-docs +PORT='40000':
-    cargo watch -s 'parallel ::: "cargo doc --release --color=always" "http target/doc -p {{PORT}}"'
+docslive:
+    light-server -c .lightrc
 
-# build release binary ONLY during dev
+# rebuild docs and start simple static server that watches for changes (in parallel)
+docw +PORT='40000':
+    parallel --lb ::: "cargo watch -x 'doc --color=always'" "http target/doc -p {{PORT}}"
+
+# run binary ONLY during dev
 # otherwise install
 install:
-	#!/usr/bin/env bash
-	if [[ {{dev}} -eq "1" ]]; then
-		cargo run --release
-	else
-		cargo install --path . -f
-	fi #
+    #!/usr/bin/env bash
+    if [[ {{dev}} -eq "1" ]]; then
+        cargo run
+    else
+        cargo install --path . -f
+    fi #
 
 # build release binary and run
-run:
-	cargo run --release -- -v
+run +args='':
+    cargo run -- {{args}}
 
 # run with --quiet
 runq:
-	./target/release/todors -q
+    cargo run -- -q
 
 # clap short help
 help:
-    cargo run --release -- -h
+    cargo run -- -h
 
 # clap long help
 longhelp:
-    cargo run --release -- --help
+    cargo run -- --help
 
-# run with verbosity (INFO)
-runv:
-	RUST_LOG=info cargo run
-
-# run with verbosity (DEBUG)
-runvv:
-	RUST_LOG=debug cargo run
-
-# run release binary
-todors +args='':
-	./target/release/todors {{args}}
+# run binary
+rb +args='':
+    ./target/debug/todors {{args}}
 
 test:
-	cargo test
+    cargo test
 
 fix:
-	cargo fix
+    cargo fix

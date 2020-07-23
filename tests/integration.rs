@@ -1,64 +1,68 @@
-use assert_cmd::prelude::*;
+use duct::cmd;
 use pretty_assertions::assert_eq;
 use todors::prelude::*;
 
+const BIN: &str = env!("CARGO_BIN_EXE_todors");
+const CFG: &str = "tests/todo.toml";
+const TODO_BIN: &str = "todo.sh";
+const TODO_CFG: &str = "tests/todo.cfg";
+
 #[test]
 /// Run both todors and todo.sh and compare output
-fn compare_bin_output() -> Result {
-    use std::process::*;
-    let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
-    let todors = Command::new(todors_bin.as_ref()).args(&["-q"]).output()?;
-    let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
-    let todo_sh = Command::new("todo.sh")
-        .args(&["-d", cfg_file.as_ref(), "ls"])
+fn compare_bin_defaults() -> Result {
+    let todors = cmd!(BIN).env("TODORS_CFG_FILE", CFG).read()?;
+    let todo_sh = cmd!(TODO_BIN)
+        .env("TODOTXT_CFG_FILE", TODO_CFG)
         .env("TODOTXT_SORT_COMMAND", "sort")
-        .output()?;
-
-    assert_eq!(
-        std::str::from_utf8(&todors.stdout)?,
-        std::str::from_utf8(&todo_sh.stdout)?
-    );
+        .read()?;
+    assert_eq!(todo_sh, todors);
     Ok(())
 }
 
 #[test]
-/// Run both todors and todo.sh and compare output
-fn compare_bin_test_output() -> Result {
-    use std::process::*;
-    let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
-    let todors = Command::new(todors_bin.as_ref())
-        .args(&["-q", "ls"])
-        .output()?;
-    let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
-    let todo_sh = Command::new("todo.sh")
-        .args(&["-d", cfg_file.as_ref(), "ls"])
+/// Compare `ls` command
+fn compare_bin_ls() -> Result {
+    let todors = cmd!(BIN, "ls").env("TODORS_CFG_FILE", CFG).read()?;
+    let todo_sh = cmd!(TODO_BIN, "ls")
+        .env("TODOTXT_CFG_FILE", TODO_CFG)
         .env("TODOTXT_SORT_COMMAND", "sort")
-        .output()?;
-
-    assert_eq!(
-        std::str::from_utf8(&todors.stdout)?,
-        std::str::from_utf8(&todo_sh.stdout)?
-    );
+        .read()?;
+    assert_eq!(todo_sh, todors);
     Ok(())
 }
 
 #[test]
-/// Run both todors and todo.sh and compare output
-fn compare_bin_plain_output() -> Result {
-    use std::process::*;
-    let todors_bin = shellexpand::env("$HOME/git/todors/target/release/todors")?;
-    let todors = Command::new(todors_bin.as_ref())
-        .args(&["-p", "ls"])
-        .output()?;
-    let cfg_file = shellexpand::env("$HOME/git/todors/tests/todo.cfg")?;
-    let todo_sh = Command::new("todo.sh")
-        .args(&["-p", "-d", cfg_file.as_ref(), "ls"])
+/// Compare `ls` command with plain output
+fn compare_bin_ls_plain() -> Result {
+    let todors = cmd!(BIN, "-p", "ls").env("TODORS_CFG_FILE", CFG).read()?;
+    let todo_sh = cmd!(TODO_BIN, "-p", "ls")
+        .env("TODOTXT_CFG_FILE", TODO_CFG)
         .env("TODOTXT_SORT_COMMAND", "sort")
-        .output()?;
+        .read()?;
+    assert_eq!(todo_sh, todors);
+    Ok(())
+}
 
-    assert_eq!(
-        std::str::from_utf8(&todors.stdout)?,
-        std::str::from_utf8(&todo_sh.stdout)?
-    );
+#[test]
+/// Compare `lsa` command
+fn compare_bin_lsa() -> Result {
+    let todo_sh = cmd!(TODO_BIN, "lsa")
+        .env("TODOTXT_CFG_FILE", TODO_CFG)
+        // .env("TODOTXT_SORT_COMMAND", "sort")
+        .read()?;
+    let todors = cmd!(BIN, "lsa").env("TODORS_CFG_FILE", CFG).read()?;
+    assert_eq!(todo_sh, todors);
+    Ok(())
+}
+
+#[test]
+/// Compare `lsa` command
+fn compare_bin_lsa_plain() -> Result {
+    let todo_sh = cmd!(TODO_BIN, "-p", "lsa")
+        .env("TODOTXT_CFG_FILE", TODO_CFG)
+        // .env("TODOTXT_SORT_COMMAND", "sort")
+        .read()?;
+    let todors = cmd!(BIN, "-p", "lsa").env("TODORS_CFG_FILE", CFG).read()?;
+    assert_eq!(todo_sh, todors);
     Ok(())
 }

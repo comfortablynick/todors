@@ -29,9 +29,8 @@ rs-console-logger = { git = "https://github.com/comfortablynick/rs-console-logge
 
 # dev dependencies
 # left in dependencies so we can see them in `cargo doc`
-assert_cmd = "1.0.1"
 pretty_assertions = "0.6"
-predicates = "1.0.5"
+duct = "0.13.4"
 
 [dependencies.serde]
 version = "1.0"

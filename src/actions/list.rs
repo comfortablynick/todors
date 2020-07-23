@@ -15,19 +15,16 @@ where
     let prefilter_task_ct = ctx.tasks.len();
     debug!("Prefilter task ct: {}", prefilter_task_ct);
     let prefilter_done_ct = ctx.done.len();
-    ctx.tasks.sort(&[SortBy {
-        field:   SortByField::Id,
-        reverse: false,
-    }]);
     ctx.tasks.retain(|t| !t.is_blank());
     ctx.done.retain(|t| !t.is_blank());
     let blank_tasks = prefilter_task_ct - ctx.tasks.len();
     if list_all {
         debug!("Prefilter done ct: {}", prefilter_done_ct);
-        ctx.done.sort(&[SortBy {
-            field:   SortByField::Id,
-            reverse: false,
-        }]);
+        // ctx.done.sort(&[SortBy {
+        //     field:   SortByField::Id,
+        //     reverse: false,
+        // }]);
+        ctx.done.iter_mut().for_each(|t| t.id = 0)
     }
     // filter based on terms
     if !terms.is_empty() {
@@ -42,6 +39,10 @@ where
     if list_all {
         ctx.tasks += ctx.done.clone();
     }
+    ctx.tasks.sort(&[SortBy {
+        field:   SortByField::Id,
+        reverse: false,
+    }]);
     // fill buffer with formatted (colored) output
     format_buffer(buf, &ctx)?;
     // write footer

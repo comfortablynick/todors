@@ -5,7 +5,8 @@ use regex::RegexSetBuilder;
 use std::{
     cmp::Ordering,
     fmt::{self, Display},
-    ops::{AddAssign, Deref, DerefMut},
+    iter::FromIterator,
+    ops::{Add, AddAssign, Deref, DerefMut},
 };
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
@@ -29,6 +30,16 @@ impl IntoIterator for Tasks {
     }
 }
 
+impl FromIterator<Task> for Tasks {
+    fn from_iter<T: IntoIterator<Item = Task>>(iter: T) -> Self {
+        let mut c = Tasks::new();
+        for i in iter {
+            c.0.push(i);
+        }
+        c
+    }
+}
+
 impl Deref for Tasks {
     type Target = Vec<Task>;
 
@@ -40,6 +51,18 @@ impl Deref for Tasks {
 impl DerefMut for Tasks {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Add for Tasks {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self::Output {
+        let mut c = Vec::from(self.0);
+        for i in other {
+            c.push(i);
+        }
+        Self(c)
     }
 }
 
@@ -55,12 +78,6 @@ impl Tasks {
     pub fn new() -> Self {
         let new = Vec::new();
         Self(new)
-    }
-
-    /// Add a new Task to Tasks collection
-    pub fn add_task(mut self, new_task: Task) -> Self {
-        self.0.push(new_task);
-        self
     }
 
     /// Remove Task by id
@@ -265,13 +282,14 @@ mod tests {
 
     const STR_TASK: &str =
         "x (C) 2019-12-18 Get new +pricing for +item @work due:2019-12-31 t:2019-12-25";
+    const SUBJECT: &str = "Get new +pricing for +item @work";
 
     #[test]
     /// Test todo_txt library string -> task
     fn str_to_task() {
         let task = Task::from_str(STR_TASK).unwrap();
         let mut expect = Task::default();
-        expect.subject = "Get new +pricing for +item @work".into();
+        expect.subject = SUBJECT.into();
         expect.priority = 2;
         expect.contexts = vec!["work".into()];
         expect.projects = vec!["item".into(), "pricing".into()];
@@ -287,7 +305,7 @@ mod tests {
     fn str_to_struct() {
         let task = Task::from_str(STR_TASK).unwrap();
         let expect = Task {
-            subject:        "Get new +pricing for +item @work".into(),
+            subject:        SUBJECT.into(),
             priority:       2,
             contexts:       vec!["work".into()],
             projects:       vec!["item".into(), "pricing".into()],
