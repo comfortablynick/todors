@@ -1,11 +1,11 @@
 use clap::Clap;
 use log::info;
-use rs_console_logger::Logger;
 use std::env;
 use termcolor::{BufferWriter, ColorChoice};
 use todors::{
     actions::handle_command,
     config::{AppContext, Config},
+    logger::init_logger,
     prelude::*,
 };
 
@@ -13,7 +13,8 @@ fn main() -> Result {
     let args: Vec<String> = env::args().collect();
     let opts = todors::app::Opt::parse();
     if !opts.quiet {
-        Logger::init(opts.verbosity).unwrap();
+        // Logger::init(opts.verbosity).unwrap();
+        init_logger(opts.verbosity);
     }
     info!("{:#?}", opts);
     if opts.plain {

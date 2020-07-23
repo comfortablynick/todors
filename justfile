@@ -32,15 +32,9 @@ docslive:
 docw +PORT='40000':
     parallel --lb ::: "cargo watch -x 'doc --color=always'" "http target/doc -p {{PORT}}"
 
-# run binary ONLY during dev
-# otherwise install
+# install binary to ~/.cargo/bin
 install:
-    #!/usr/bin/env bash
-    if [[ {{dev}} -eq "1" ]]; then
-        cargo run
-    else
-        cargo install --path . -f
-    fi #
+    cargo install --path . -f
 
 # build release binary and run
 run +args='':
@@ -49,6 +43,14 @@ run +args='':
 # run with --quiet
 runq:
     cargo run -- -q
+
+# run with -v
+runv:
+    cargo run -- -v
+
+# run with -vv
+runvv:
+    cargo run -- -vv
 
 # clap short help
 help:

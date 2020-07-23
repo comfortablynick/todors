@@ -1,5 +1,5 @@
 ; vim:set fenc=utf-8 ft=dosini:
-; written with just2tasks: Wed Jul 22 11:20:49 2020
+; written with just2tasks: Thu Jul 23 10:43:09 2020
 
 [autobuild]
 command=just autobuild
@@ -61,6 +61,12 @@ cwd=<root>
 output=terminal
 save=1
 
+[rb]
+command=just rb
+cwd=<root>
+output=terminal
+save=1
+
 [run]
 command=just run
 cwd=<root>
@@ -90,10 +96,3 @@ command=just test
 cwd=<root>
 output=terminal
 save=1
-
-[todors]
-command=just todors
-cwd=<root>
-output=terminal
-save=1
-

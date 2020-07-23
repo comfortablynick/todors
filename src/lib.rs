@@ -15,7 +15,7 @@
 //!
 //! Will produce output identical to `todo.sh`:
 //!
-//!```sh
+//!```
 //! 01 (A) Thank Mom for the meatballs @phone
 //! 02 (B) Schedule Goodwill pickup +GarageSale @phone
 //! 03 Post signs around the neighborhood +GarageSale
@@ -27,6 +27,7 @@ pub mod app;
 pub mod color;
 pub mod config;
 pub mod file;
+pub mod logger;
 pub mod prelude;
 pub mod style;
 pub mod task;

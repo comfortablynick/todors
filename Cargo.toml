@@ -16,6 +16,7 @@ path = "src/bin/main.rs"
 
 [dependencies]
 log = "0.4.11"
+env_logger = "0.7.1"
 chrono = "0.4"
 dirs = "2.0"
 regex = "1"
@@ -25,7 +26,6 @@ toml = "0.5"
 shellexpand = "2"
 clap = "3.0.0-beta.1"
 anyhow = "1.0"
-rs-console-logger = { git = "https://github.com/comfortablynick/rs-console-logger.git" }
 
 # dev dependencies
 # left in dependencies so we can see them in `cargo doc`
