@@ -1,4 +1,5 @@
 #!/usr/bin/env just --justfile
+bin_name := "todors"
 alias r := run
 alias b := build
 alias i := install
@@ -62,7 +63,7 @@ longhelp:
 
 # run binary
 rb +args='':
-    ./target/debug/todors {{args}}
+    ./target/debug/{{bin_name}} {{args}}
 
 test:
     cargo test
