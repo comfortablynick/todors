@@ -24,7 +24,7 @@
 #![allow(clippy::pedantic)]
 pub mod actions;
 pub mod app;
-pub mod color;
+// pub mod color;
 pub mod config;
 pub mod file;
 pub mod prelude;
