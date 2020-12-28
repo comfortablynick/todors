@@ -2,7 +2,6 @@ use crate::{config::AppContext, prelude::*, task::Task, util};
 use log::info;
 use regex::Regex;
 
-// #[allow(clippy::needless_range_loop)]
 /// Delete task by line number, or delete term from task
 pub fn delete(item: usize, term: &Option<String>, ctx: &mut AppContext) -> Result<bool> {
     if let Some(t) = term {
