@@ -34,7 +34,7 @@ duct = "0.13.4"
 criterion = "0.3"
 
 [dependencies.serde]
-version = "1.0.114"
+version = "1.0.119"
 features = ["derive"]
 
 [[bench]]
