@@ -1,5 +1,8 @@
 #!/usr/bin/env just --justfile
-bin_name := "todors"
+package_name    := `sed -En 's/name[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
+package_version := `sed -En 's/version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
+build_type      := if env_var("CARGO_RELEASE") == "1" { "release" } else { "debug" }
+
 alias r := run
 alias b := build
 alias i := install
@@ -7,15 +10,16 @@ alias h := help
 alias lh := longhelp
 alias q := runq
 
-dev := '1'
+_default:
+    @just --choose
 
 # automatically build on each change
 autobuild:
     cargo watch -x build
 
 # build release binary
-build:
-    cargo build
+build *FLAGS:
+    cargo build {{FLAGS}}
 
 # rebuild docs
 doc:
@@ -62,11 +66,23 @@ longhelp:
     cargo run -- --help
 
 # run binary
-rb +args='':
-    ./target/debug/{{bin_name}} {{args}}
+rb *args:
+    ./target/debug/{{package_name}} {{args}}
 
 test:
     cargo test
 
+lint:
+    cargo clippy
+
 fix:
     cargo fix
+
+clean:
+    cargo clean
+    find . -type f -name "*.orig" -exec rm {} \;
+    find . -type f -name "*.bk" -exec rm {} \;
+    find . -type f -name ".*~" -exec rm {} \;
+
+version:
+    @echo {{package_name}} v{{package_version}}  \({{build_type}}\)
