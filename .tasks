@@ -1,97 +1,222 @@
-; written with just2tasks: Thu Jul 23 10:43:09 2020
+; vim:set fenc=utf-8 ft=dosini:
+; written with just2tasks: Fri Oct 15 21:18:23 2021
 
+; automatically build on each change
 [autobuild]
 command=just autobuild
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; benchmark
+[bench]
+command=just bench
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+;  *FLAGS       # build binary
 [build]
 command=just build
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+;  *FLAGS           # alias for `build`
+[b]
+command=just b
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+;  *FLAGS  # alias for `build`
+[file-build]
+command=just file-build
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+[clean]
+command=just clean
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+; rebuild docs
 [doc]
 command=just doc
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+;  +PORT='40000' # rebuild docs and start simple static server
 [docs]
 command=just docs
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; start server for docs and update upon changes
 [docslive]
 command=just docslive
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+;  +PORT='40000' # rebuild docs and start simple static server that watches for changes (in parallel)
 [docw]
 command=just docw
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
 [fix]
 command=just fix
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; clap short help
 [help]
 command=just help
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; alias for `help`
+[h]
+command=just h
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+; install binary to ~/.cargo/bin
 [install]
 command=just install
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; alias for `install`
+[i]
+command=just i
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+[lint]
+command=just lint
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+; clap long help
 [longhelp]
 command=just longhelp
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; alias for `longhelp`
+[lh]
+command=just lh
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+;  *args           # run binary
 [rb]
 command=just rb
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+;  +args=''       # build release binary and run
 [run]
 command=just run
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+;  +args=''  # alias for `run`
+[file-run]
+command=just file-run
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+;  +args=''         # alias for `run`
+[r]
+command=just r
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+; run with --quiet
 [runq]
 command=just runq
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; alias for `runq`
+[q]
+command=just q
+cwd=<root>
+output=terminal
+pos=right
+save=1
+
+; run with -v
 [runv]
 command=just runv
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
+; run with -vv
 [runvv]
 command=just runvv
 cwd=<root>
 output=terminal
+pos=right
 save=1
 
 [test]
 command=just test
 cwd=<root>
 output=terminal
+pos=right
 save=1
+
+[version]
+command=just version
+cwd=<root>
+output=terminal
+pos=right
+save=1
+

@@ -1,7 +1,7 @@
 #!/usr/bin/env just --justfile
 package_name    := `sed -En 's/name[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
 package_version := `sed -En 's/version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
-build_type      := if env_var("CARGO_RELEASE") == "1" { "release" } else { "debug" }
+build_type      := env_var("CARGO_PROFILE")
 
 alias r := run
 alias b := build
@@ -9,6 +9,8 @@ alias i := install
 alias h := help
 alias lh := longhelp
 alias q := runq
+alias file-run := run
+alias file-build := build
 
 _default:
     @just --choose
@@ -17,9 +19,13 @@ _default:
 autobuild:
     cargo watch -x build
 
-# build release binary
+# build binary
 build *FLAGS:
     cargo build {{FLAGS}}
+
+# benchmark
+bench:
+    RUST_LOG=off cargo bench
 
 # rebuild docs
 doc:
@@ -67,7 +73,7 @@ longhelp:
 
 # run binary
 rb *args:
-    ./target/debug/{{package_name}} {{args}}
+    ./target/{{build_type}}/{{package_name}} {{args}}
 
 test:
     cargo test
