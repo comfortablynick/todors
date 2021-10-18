@@ -1,7 +1,8 @@
 #!/usr/bin/env just --justfile
-package_name    := `sed -En 's/name[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
+
+package_name := `sed -En 's/name[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
 package_version := `sed -En 's/version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
-build_type      := env_var("CARGO_PROFILE")
+build_type := env_var("CARGO_PROFILE")
 
 alias r := run
 alias b := build
@@ -21,7 +22,7 @@ autobuild:
 
 # build binary
 build *FLAGS:
-    cargo build {{FLAGS}}
+    cargo build {{ FLAGS }}
 
 # benchmark
 bench:
@@ -33,7 +34,7 @@ doc:
 
 # rebuild docs and start simple static server
 docs +PORT='40000':
-    cargo makedocs -d --root && http target/doc -p {{PORT}}
+    cargo makedocs -d --root && http target/doc -p {{ PORT }}
 
 # start server for docs and update upon changes
 docslive:
@@ -41,7 +42,7 @@ docslive:
 
 # rebuild docs and start simple static server that watches for changes (in parallel)
 docw +PORT='40000':
-    parallel --lb ::: "cargo watch -x 'makedocs -d --root'" "http target/doc -p {{PORT}}"
+    parallel --lb ::: "cargo watch -x 'makedocs -d --root'" "http target/doc -p {{ PORT }}"
 
 # install binary to ~/.cargo/bin
 install:
@@ -49,7 +50,7 @@ install:
 
 # build release binary and run
 run +args='':
-    cargo run -- {{args}}
+    cargo run -- {{ args }}
 
 # run with --quiet
 runq:
@@ -73,7 +74,7 @@ longhelp:
 
 # run binary
 rb *args:
-    ./target/{{build_type}}/{{package_name}} {{args}}
+    ./target/{{ build_type }}/{{ package_name }} {{ args }}
 
 test:
     cargo test
@@ -91,4 +92,4 @@ clean:
     find . -type f -name ".*~" -exec rm {} \;
 
 version:
-    @echo {{package_name}} v{{package_version}}  \({{build_type}}\)
+    @echo {{ package_name }} v{{ package_version }}  \({{ build_type }}\)
