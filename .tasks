@@ -1,12 +1,12 @@
 ; vim:set fenc=utf-8 ft=dosini:
-; written with just2tasks: Mon Oct 18 11:59:14 2021
+; written with just2tasks
 
 ; automatically build on each change
 [autobuild]
 command=just autobuild
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; benchmark
@@ -14,7 +14,7 @@ save=1
 command=just bench
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; build binary
@@ -22,7 +22,7 @@ save=1
 command=just build
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `build`
@@ -30,7 +30,7 @@ save=1
 command=just b
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `build`
@@ -38,14 +38,14 @@ save=1
 command=just file-build
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 [clean]
 command=just clean
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; rebuild docs
@@ -53,7 +53,7 @@ save=1
 command=just doc
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; rebuild docs and start simple static server
@@ -61,7 +61,7 @@ save=1
 command=just docs
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; start server for docs and update upon changes
@@ -69,7 +69,7 @@ save=1
 command=just docslive
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; rebuild docs and start simple static server that watches for changes (in parallel)
@@ -77,14 +77,14 @@ save=1
 command=just docw
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 [fix]
 command=just fix
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; clap short help
@@ -92,7 +92,7 @@ save=1
 command=just help
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `help`
@@ -100,7 +100,7 @@ save=1
 command=just h
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; install binary to ~/.cargo/bin
@@ -108,7 +108,7 @@ save=1
 command=just install
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `install`
@@ -116,14 +116,14 @@ save=1
 command=just i
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 [lint]
 command=just lint
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; clap long help
@@ -131,7 +131,7 @@ save=1
 command=just longhelp
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `longhelp`
@@ -139,7 +139,7 @@ save=1
 command=just lh
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; run binary
@@ -147,7 +147,7 @@ save=1
 command=just rb
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; build release binary and run
@@ -155,7 +155,7 @@ save=1
 command=just run
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `run`
@@ -163,7 +163,7 @@ save=1
 command=just file-run
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `run`
@@ -171,7 +171,7 @@ save=1
 command=just r
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; run with --quiet
@@ -179,7 +179,7 @@ save=1
 command=just runq
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; alias for `runq`
@@ -187,7 +187,7 @@ save=1
 command=just q
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; run with -v
@@ -195,7 +195,7 @@ save=1
 command=just runv
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 ; run with -vv
@@ -203,20 +203,19 @@ save=1
 command=just runvv
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 [test]
 command=just test
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
 
 [version]
 command=just version
 cwd=<root>
 output=terminal
-pos=right
+pos=tmux_split
 save=1
-

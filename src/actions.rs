@@ -1,11 +1,11 @@
-//! # Interact and optionally edit the todo.txt file.
+//! # Interact and opionally edit the todo.txt file.
 pub mod add;
 pub mod delete;
 pub mod list;
 
 use crate::{
     actions::{add::add, list::list},
-    app::SubCommand,
+    app::Commands,
     config::AppContext,
     file::{get_done, get_tasks, write_buf_to_file},
     prelude::*,
@@ -32,42 +32,42 @@ where
 
     match ctx.opts.cmd.clone() {
         Some(command) => match command {
-            SubCommand::Add { task } => {
+            Commands::Add { task } => {
                 let new = add(task, ctx)?;
                 write_buf_to_file(new.raw, &ctx.todo_file, true)?;
             }
-            SubCommand::Addm { tasks } => {
+            Commands::Addm { tasks } => {
                 for task in tasks {
                     let new = add(task, ctx)?;
                     write_buf_to_file(new.raw, &ctx.todo_file, true)?;
                 }
             }
-            SubCommand::Addto => todo!(),
-            SubCommand::Append { item, text } => {
+            Commands::Addto => todo!(),
+            Commands::Append { item, text } => {
                 eprintln!("Appending: {:?} to task {}", text, item);
                 todo!()
             }
-            SubCommand::Archive => todo!(),
-            SubCommand::Deduplicate => todo!(),
-            SubCommand::Depri { items } => {
+            Commands::Archive => todo!(),
+            Commands::Deduplicate => todo!(),
+            Commands::Depri { items } => {
                 eprintln!("Deprioritizing item(s): {:?}", items);
                 todo!()
             }
-            SubCommand::Del { item, term } => {
+            Commands::Del { item, term } => {
                 if delete::delete(item, &term, ctx)? {
                     write_buf_to_file(tasks_to_string(ctx)?, &ctx.todo_file, false)?;
                     return Ok(());
                 }
                 std::process::exit(1)
             }
-            SubCommand::List { terms } => {
+            Commands::List { terms } => {
                 list(&terms, buf, ctx, false)?;
             }
-            SubCommand::Listall { terms } => {
+            Commands::Listall { terms } => {
                 get_done(ctx)?;
                 list(&terms, buf, ctx, true)?;
             }
-            SubCommand::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
+            Commands::Listpri { priorities } => info!("Listing priorities {:?}", priorities),
         },
         None => match &ctx.settings.default_action {
             Some(cmd) => match cmd.as_str() {

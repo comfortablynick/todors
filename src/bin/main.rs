@@ -1,5 +1,5 @@
 mod logger;
-use clap::Clap;
+use clap::Parser;
 use log::info;
 use logger::init_logger;
 use std::env;

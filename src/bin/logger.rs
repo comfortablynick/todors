@@ -3,33 +3,43 @@ use env_logger::{
     fmt::{Color, Style, StyledValue},
     Env,
 };
-use log::{self, Level};
+use log::{self, Level, LevelFilter};
 use std::io::Write;
 
 /// Initialize customized instance of env_logger
 pub fn init_logger(verbose: u8) {
-    env_logger::Builder::from_env(Env::new().default_filter_or(match verbose {
-        0 => "warn",
-        1 => "info",
-        2 => "debug",
-        _ => "trace",
-    }))
-    .format(|buf, record| {
-        let mut style = buf.style();
-        style.set_bold(true);
-        let level = colored_level(&mut style, record.level());
-        let mut style = buf.style();
-        let target = style.set_bold(true).value(record.target());
+    // TODO: there might be a cleaner way to do this
+    // CLI flag should override env var
+    let mut logger = if verbose > 0 {
+        env_logger::Builder::new()
+    } else {
+        env_logger::Builder::from_env(Env::new().default_filter_or("warn"))
+    };
+    if verbose > 0 {
+        logger.filter_level(match verbose {
+            0 => LevelFilter::Warn,
+            1 => LevelFilter::Info,
+            2 => LevelFilter::Debug,
+            _ => LevelFilter::Trace,
+        });
+    }
+    logger
+        .format(|buf, record| {
+            let mut style = buf.style();
+            style.set_bold(true);
+            let level = colored_level(&mut style, record.level());
+            let mut style = buf.style();
+            let target = style.set_bold(true).value(record.target());
 
-        write!(buf, "{}|{}", level, target).unwrap();
+            write!(buf, "{}|{}", level, target).unwrap();
 
-        if let Some(file) = record.file() {
-            write!(buf, "|{}", file).unwrap();
-        }
+            if let Some(file) = record.file() {
+                write!(buf, "|{}", file).unwrap();
+            }
 
-        writeln!(buf, ": {}", record.args())
-    })
-    .init();
+            writeln!(buf, ": {}", record.args())
+        })
+        .init();
 }
 
 /// Style log level with color

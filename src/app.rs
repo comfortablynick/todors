@@ -1,72 +1,70 @@
 //! Build cli app using #[derive(Clap)]
+use clap::{AppSettings, Parser};
 
-use clap::{AppSettings, Clap};
-use std::path::PathBuf;
+const FLAG_HDG: &str = "FLAGS";
 
-#[derive(Clap, Debug, PartialEq, Default)]
+#[derive(Parser, Debug, PartialEq, Default)]
 #[clap(author,
        about,
        version,
        max_term_width = 80,
-       setting = AppSettings::ColoredHelp,
-       setting = AppSettings::DontCollapseArgsInUsage, // Doesn't seem to work
-       setting = AppSettings::UnifiedHelpMessage,
+       dont_collapse_args_in_usage = true,
+       propagate_version = true,
        setting = AppSettings::DeriveDisplayOrder,
-       setting = AppSettings::VersionlessSubcommands,
     )]
 pub struct Opt {
     /// Hide task contexts from output.
     ///
     /// Use twice to unhide contexts, which returns to the default
     /// behavior of showing contexts.
-    #[clap(name = "@", short, parse(from_occurrences))]
+    #[clap(name = "@", short, parse(from_occurrences), help_heading = FLAG_HDG)]
     pub hide_context:          u8,
     /// Hide task projects from output.
     ///
     /// Use twice to unhide projects, which returns to the default
     /// behavior of showing projects.
-    #[clap(name = "+", short, parse(from_occurrences))]
+    #[clap(name = "+", short, parse(from_occurrences), help_heading = FLAG_HDG)]
     pub hide_project:          u8,
     /// Color mode
-    #[clap(short)]
+    #[clap(short, help_heading = FLAG_HDG)]
     pub color:                 bool,
     /// Location of toml config file.
     ///
     /// Various options can be set, including colors and styles.
     #[clap(
         name = "CONFIG_FILE",
-        short = "d",
+        short = 'd',
         parse(from_os_str),
         env = "TODORS_CFG_FILE",
         hide_env_values = true
     )]
-    pub config_file:           Option<PathBuf>,
+    pub config_file:           Option<std::path::PathBuf>,
     /// Force actions without confirmation or input
-    #[clap(short)]
+    #[clap(short, help_heading = FLAG_HDG)]
     pub force:                 bool,
     /// Hide task priorities from output.
     ///
     /// Use twice to show priorities, which returns to the default
     /// behavior of showing priorities.
-    #[clap(name = "P", short, parse(from_occurrences))]
+    #[clap(name = "P", short, parse(from_occurrences), help_heading = FLAG_HDG)]
     pub hide_priority:         u8,
     /// Don't preserve line (task) numbers.
     ///
     /// Opposite of -N. When a task is deleted, the following tasks will
     /// be moved up one line.
-    #[clap(name = "n", short)]
+    #[clap(name = "n", short, help_heading = FLAG_HDG)]
     pub remove_blank_lines:    bool,
     /// Preserve line (task) numbers.
     ///
     /// This allows consistent access of the tasks by the same id each time.
     /// When a task is deleted, it will remain blank.
-    #[clap(name = "N", short, overrides_with("n"))]
+    #[clap(name = "N", short, overrides_with("n"), help_heading = FLAG_HDG)]
     pub preserve_line_numbers: bool,
     /// Plain mode turns off colors.
     ///
     /// It overrides environment settings that control terminal colors.
     /// Color settings in config will have no effect.
-    #[clap(short, overrides_with("c"))]
+    #[clap(short, overrides_with("c"), help_heading = FLAG_HDG)]
     pub plain:                 bool,
     ///Increase log verbosity printed to console.
     ///
@@ -76,22 +74,22 @@ pub struct Opt {
     ///
     /// The quiet flag -q will override this setting and will silence
     /// log output.
-    #[clap(short, parse(from_occurrences))]
+    #[clap(short, parse(from_occurrences), help_heading = FLAG_HDG)]
     pub verbosity:             u8,
     /// Quiet debug messages on console.
     ///
     /// Overrides verbose (-v) setting. The arguments -vvvq will produce no
     /// console debug output.
-    #[clap(short, overrides_with("v"))]
+    #[clap(short, overrides_with("v"), help_heading = FLAG_HDG)]
     pub quiet:                 bool,
     /// Prepend current date to new task.
-    #[clap(name = "t", short)]
+    #[clap(name = "t", short, help_heading = FLAG_HDG)]
     pub date_on_add:           bool,
-    #[clap(name = "T", short, overrides_with("t"))]
+    #[clap(name = "T", short, overrides_with("t"), help_heading = FLAG_HDG)]
     /// Don't prepend current date to new task.
     pub no_date_on_add:        bool,
     #[clap(subcommand)]
-    pub cmd:                   Option<SubCommand>,
+    pub cmd:                   Option<Commands>,
 }
 
 const ADD_TASK: &str = "\
@@ -128,16 +126,16 @@ use \"TERM1\\|TERM2\\|...\" (with quotes), or TERM1|TERM2
 Hide all tasks that contain TERM(s) preceded by a minus
 sign (i.e. -TERM).";
 
-#[derive(Clap, Debug, Clone, Eq, PartialEq)]
-pub enum SubCommand {
+#[derive(clap::Subcommand, Debug, Clone, Eq, PartialEq)]
+pub enum Commands {
     /// Adds a line of text to todo.txt.
     Add {
-        #[clap(name = "TASK", long_about = ADD_TASK)]
+        #[clap(name = "TASK", long_help = ADD_TASK)]
         task: String,
     },
     /// Adds multiple lines of text to todo.txt.
     Addm {
-        #[clap(name = "TASKS", long_about = ADDM_TASKS)]
+        #[clap(name = "TASKS", long_help = ADDM_TASKS)]
         tasks: Vec<String>,
     },
     /// Adds a line of text to any file located in the todo.txt directory.
@@ -161,7 +159,7 @@ pub enum SubCommand {
         /// Line number in todo.txt.
         #[clap(name = "ITEM")]
         item: usize,
-        #[clap(name = "TERM", long_about = DEL_TERM)]
+        #[clap(name = "TERM", long_help = DEL_TERM)]
         term: Option<String>,
     },
     /// Deprioritizes (removes the priority) from the task(s) on line ITEM in todo.txt.
@@ -176,7 +174,7 @@ pub enum SubCommand {
     /// Sorted by priority with line numbers.
     #[clap(alias = "ls")]
     List {
-        #[clap(name = "TERM", long_about = LS_TERM)]
+        #[clap(name = "TERM", long_help = LS_TERM)]
         terms: Vec<String>,
     },
     /// Displays all lines in todo.txt AND done.txt with optional filtering.
@@ -184,7 +182,7 @@ pub enum SubCommand {
     /// Sorted by priority with line numbers.
     #[clap(alias = "lsa")]
     Listall {
-        #[clap(name = "TERM", long_about = LS_TERM)]
+        #[clap(name = "TERM", long_help = LS_TERM)]
         terms: Vec<String>,
     },
     #[clap(alias = "lsp")]
