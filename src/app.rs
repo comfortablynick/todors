@@ -32,7 +32,7 @@ pub struct Opt {
     ///
     /// Various options can be set, including colors and styles.
     #[clap(
-        name = "CONFIG_FILE",
+        name = "CFG_FILE",
         short = 'd',
         parse(from_os_str),
         env = "TODORS_CFG_FILE",

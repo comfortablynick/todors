@@ -45,7 +45,7 @@ impl Config {
     {
         let contents = read_file_to_string(&file_path)?;
         info!("Reading config from toml file {:?}", file_path);
-        toml::from_str(contents.as_str()).context("converting toml to config object")
+        toml::from_str(contents.as_str()).with_context(|| "converting toml to config object")
     }
 }
 
