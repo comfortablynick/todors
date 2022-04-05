@@ -1,7 +1,10 @@
 //! Build cli app using #[derive(Clap)]
-use clap::{AppSettings, Parser};
+
+use clap::{AppSettings, ArgEnum, IntoApp, Parser};
+use clap_complete::{generate, shells::*};
 
 const FLAG_HDG: &str = "FLAGS";
+const BIN_NAME: &str = "todors";
 
 #[derive(Parser, Debug, PartialEq, Default)]
 #[clap(author,
@@ -151,6 +154,12 @@ pub enum Commands {
     },
     /// Moves all done tasks from todo.txt to done.txt and removes blank lines.
     Archive,
+    /// Generates shell completions to stdout.
+    Complete {
+        /// Generate completions for this shell.
+        #[clap(arg_enum, name = "SHELL")]
+        shell: Shell,
+    },
     /// Removes duplicate lines from todo.txt.
     Deduplicate,
     /// Deletes a task or part of a task from todo.txt.
@@ -187,4 +196,27 @@ pub enum Commands {
     },
     #[clap(alias = "lsp")]
     Listpri { priorities: Vec<String> },
+}
+
+#[derive(ArgEnum, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Shell {
+    Bash,
+    Zsh,
+    Fish,
+    Powershell,
+    Elvish,
+}
+
+impl Shell {
+    pub(crate) fn generate(&self) {
+        let mut app = Opt::command();
+        let mut fd = std::io::stdout();
+        match self {
+            Self::Bash => generate(Bash, &mut app, BIN_NAME, &mut fd),
+            Self::Zsh => generate(Zsh, &mut app, BIN_NAME, &mut fd),
+            Self::Fish => generate(Fish, &mut app, BIN_NAME, &mut fd),
+            Self::Powershell => generate(PowerShell, &mut app, BIN_NAME, &mut fd),
+            Self::Elvish => generate(Elvish, &mut app, BIN_NAME, &mut fd),
+        }
+    }
 }

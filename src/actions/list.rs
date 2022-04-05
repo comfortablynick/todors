@@ -39,10 +39,16 @@ where
     if list_all {
         ctx.tasks += ctx.done.clone();
     }
-    ctx.tasks.sort(&[SortBy {
-        field:   SortByField::Id,
-        reverse: false,
-    }]);
+    ctx.tasks.sort(&[
+        SortBy {
+            field:   SortByField::Id,
+            reverse: false,
+        },
+        SortBy {
+            field:   SortByField::Raw,
+            reverse: false,
+        },
+    ]);
     // fill buffer with formatted (colored) output
     format_buffer(buf, &ctx)?;
     // write footer

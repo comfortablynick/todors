@@ -48,6 +48,7 @@ where
                 todo!()
             }
             Commands::Archive => todo!(),
+            Commands::Complete { shell } => shell.generate(),
             Commands::Deduplicate => todo!(),
             Commands::Depri { items } => {
                 eprintln!("Deprioritizing item(s): {:?}", items);

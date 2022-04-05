@@ -48,7 +48,7 @@ fn compare_bin_ls_plain() -> Result {
 fn compare_bin_lsa() -> Result {
     let todo_sh = cmd!(TODO_BIN, "lsa")
         .env("TODOTXT_CFG_FILE", TODO_CFG)
-        // .env("TODOTXT_SORT_COMMAND", "sort")
+        .env("TODOTXT_SORT_COMMAND", "sort")
         .read()?;
     let todors = cmd!(BIN, "lsa").env("TODORS_CFG_FILE", CFG).read()?;
     assert_eq!(todo_sh, todors);
@@ -60,7 +60,7 @@ fn compare_bin_lsa() -> Result {
 fn compare_bin_lsa_plain() -> Result {
     let todo_sh = cmd!(TODO_BIN, "-p", "lsa")
         .env("TODOTXT_CFG_FILE", TODO_CFG)
-        // .env("TODOTXT_SORT_COMMAND", "sort")
+        .env("TODOTXT_SORT_COMMAND", "sort")
         .read()?;
     let todors = cmd!(BIN, "-p", "lsa").env("TODORS_CFG_FILE", CFG).read()?;
     assert_eq!(todo_sh, todors);
