@@ -1,5 +1,6 @@
 //! Build cli app using #[derive(Clap)]
 
+use crate::task::SortBy;
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::{generate, shells::*};
 
@@ -88,9 +89,12 @@ pub struct Opt {
     /// Prepend current date to new task.
     #[clap(name = "t", short, help_heading = FLAG_HDG)]
     pub date_on_add:           bool,
-    #[clap(name = "T", short, overrides_with("t"), help_heading = FLAG_HDG)]
     /// Don't prepend current date to new task.
+    #[clap(name = "T", short, overrides_with("t"), help_heading = FLAG_HDG)]
     pub no_date_on_add:        bool,
+    /// Sort tasks by property
+    #[clap(short, arg_enum)]
+    pub sort_by:                  Vec<SortBy>,
     #[clap(subcommand)]
     pub cmd:                   Option<Commands>,
 }

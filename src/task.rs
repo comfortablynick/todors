@@ -7,6 +7,7 @@ use std::{
     fmt::{self, Display},
     iter::FromIterator,
     ops::{Add, AddAssign, Deref, DerefMut},
+    str::FromStr,
 };
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
@@ -130,26 +131,25 @@ impl Tasks {
     pub fn sort(&mut self, sorts: &[SortBy]) {
         self.0.sort_by(|a, b| {
             let mut cmp = Ordering::Equal;
-            for sort in sorts {
+            for sort_field in sorts {
                 if cmp != Ordering::Equal {
                     break;
                 }
-                cmp = match sort.field {
-                    SortByField::CompleteDate => a.parsed.finish_date.cmp(&b.parsed.finish_date),
-                    SortByField::Completed => a.parsed.finished.cmp(&b.parsed.finished),
-                    SortByField::Context => a.parsed.contexts.get(0).cmp(&b.parsed.contexts.get(0)),
-                    SortByField::CreateDate => a.parsed.create_date.cmp(&b.parsed.create_date),
-                    SortByField::DueDate => a.parsed.due_date.cmp(&b.parsed.due_date),
-                    SortByField::Id => a.id.cmp(&b.id),
-                    SortByField::Priority => a.parsed.priority.cmp(&b.parsed.priority),
-                    SortByField::Project => a.parsed.projects.get(0).cmp(&b.parsed.projects.get(0)),
-                    SortByField::Body => a.parsed.subject.cmp(&b.parsed.subject),
-                    SortByField::Raw => a.raw.cmp(&b.raw),
-                    SortByField::ThresholdDate => {
+                cmp = match sort_field {
+                    SortBy::CompleteDate => a.parsed.finish_date.cmp(&b.parsed.finish_date),
+                    SortBy::Completed => a.parsed.finished.cmp(&b.parsed.finished),
+                    SortBy::Context => a.parsed.contexts.get(0).cmp(&b.parsed.contexts.get(0)),
+                    SortBy::CreateDate => a.parsed.create_date.cmp(&b.parsed.create_date),
+                    SortBy::DueDate => a.parsed.due_date.cmp(&b.parsed.due_date),
+                    SortBy::Id => a.id.cmp(&b.id),
+                    SortBy::Priority => a.parsed.priority.cmp(&b.parsed.priority),
+                    SortBy::Project => a.parsed.projects.get(0).cmp(&b.parsed.projects.get(0)),
+                    SortBy::Body => a.parsed.subject.cmp(&b.parsed.subject),
+                    SortBy::Raw => a.raw.cmp(&b.raw),
+                    SortBy::ThresholdDate => {
                         a.parsed.threshold_date.cmp(&b.parsed.threshold_date)
                     }
                 };
-                cmp = if sort.reverse { cmp.reverse() } else { cmp };
             }
             cmp
         })
@@ -175,7 +175,7 @@ impl Task {
     {
         Task {
             id,
-            parsed: todo_txt::parser::task(&raw_text.into())
+            parsed: todo_txt::Task::from_str(&raw_text.into())
                 .unwrap_or_else(|_| panic!("couldn't parse into todo: '{}'", raw_text.into())),
             raw: raw_text.into(),
         }
@@ -240,8 +240,8 @@ pub fn tasks_to_string(ctx: &mut AppContext) -> Result<String> {
 }
 
 /// Fields of `Task` we can sort by
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SortByField {
+#[derive(clap::ArgEnum, Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SortBy {
     /// Parsed body of the task
     Body,
     /// Complete date of completed task
@@ -266,14 +266,14 @@ pub enum SortByField {
     ThresholdDate,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct SortBy {
-    /// Sorting criterion
-    pub field:   SortByField,
-    /// Whether to reverse the sort
-    pub reverse: bool,
-}
-
+// #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+// pub struct SortBy {
+//     /// Sorting criterion
+//     pub field:   SortByField,
+//     /// Whether to reverse the sort
+//     pub reverse: bool,
+// }
+//
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -290,7 +290,7 @@ mod tests {
         let task = Task::from_str(STR_TASK).unwrap();
         let mut expect = Task::default();
         expect.subject = SUBJECT.into();
-        expect.priority = 2;
+        expect.priority = 2.into();
         expect.contexts = vec!["work".into()];
         expect.projects = vec!["item".into(), "pricing".into()];
         expect.create_date = Some(Date::from_ymd(2019, 12, 18));
@@ -306,7 +306,7 @@ mod tests {
         let task = Task::from_str(STR_TASK).unwrap();
         let expect = Task {
             subject:        SUBJECT.into(),
-            priority:       2,
+            priority:       2.into(),
             contexts:       vec!["work".into()],
             projects:       vec!["item".into(), "pricing".into()],
             create_date:    Some(Date::from_ymd(2019, 12, 18)),

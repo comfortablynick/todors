@@ -116,7 +116,7 @@ where
     let leading_zeros = max(2, ctx.task_ct.to_string().len());
     for task in &*ctx.tasks {
         let line = &task.raw;
-        let pri = get_pri_name(task.parsed.priority).unwrap_or_default();
+        let pri = get_pri_name(u8::from(task.parsed.priority.clone())).unwrap_or_default();
         let color = if task.parsed.finished {
             get_colors_from_style("done", ctx)?
         } else {
@@ -154,7 +154,7 @@ where
                 write!(buf, " ")?;
             }
         }
-        if task.parsed.priority < 26 || task.parsed.finished {
+        if !task.parsed.priority.is_lowest() || task.parsed.finished {
             buf.reset()?;
         }
         writeln!(buf)?;

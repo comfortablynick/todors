@@ -15,30 +15,30 @@ name = "todors"
 path = "src/bin/main.rs"
 
 [dependencies]
-log           = "0.4.11"
-env_logger    = "0.7.1"
-chrono        = "0.4"
-dirs          = "2.0"
-regex         = "1"
-termcolor     = "1.1"
-todo-txt      = "^1.3"
-toml          = "0.5"
-shellexpand   = "2"
-anyhow        = "1.0"
+log           = "0.4.16"
+env_logger    = "0.9.0"
+chrono        = "0.4.19"
+dirs          = "4.0.0"
+regex         = "1.5.5"
+termcolor     = "1.1.3"
+todo-txt      = "2.2.0"
+toml          = "0.5.8"
+shellexpand   = "2.1.0"
+anyhow        = "1.0.56"
 clap_complete = "3.1.1"
 
 [dependencies.clap]
-version  = "3.1.6"
+version = "3.1.8"
 features = ["derive", "env"]
 
 [dependencies.serde]
-version  = "1.0.114"
+version = "1.0.136"
 features = ["derive"]
 
 [dev-dependencies]
-pretty_assertions = "0.6"
-duct              = "0.13.4"
-criterion         = "0.3"
+pretty_assertions = "1.2.1"
+duct              = "0.13.5"
+criterion         = "0.3.5"
 
 [[bench]]
 name    = "bench"
