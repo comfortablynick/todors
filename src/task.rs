@@ -266,14 +266,6 @@ pub enum SortBy {
     ThresholdDate,
 }
 
-// #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-// pub struct SortBy {
-//     /// Sorting criterion
-//     pub field:   SortByField,
-//     /// Whether to reverse the sort
-//     pub reverse: bool,
-// }
-//
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;

@@ -94,7 +94,7 @@ pub struct Opt {
     pub no_date_on_add:        bool,
     /// Sort tasks by property
     #[clap(short, arg_enum)]
-    pub sort_by:                  Vec<SortBy>,
+    pub sort_by:                  Option<Vec<SortBy>>,
     #[clap(subcommand)]
     pub cmd:                   Option<Commands>,
 }

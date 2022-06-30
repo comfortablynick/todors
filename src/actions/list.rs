@@ -1,4 +1,4 @@
-use crate::{config::AppContext, prelude::*, style::format_buffer};
+use crate::{config::AppContext, prelude::*, style::format_buffer, task::SortBy};
 use log::{debug, info};
 
 /// List tasks from todo.txt and done.txt files
@@ -34,13 +34,11 @@ where
     if list_all {
         ctx.tasks += ctx.done.clone();
     }
-    // ctx.tasks.sort(&[
-    //     SortBy {
-    //         field:   SortByField::Priority,
-    //         reverse: false,
-    //     },
-    // ]);
-    ctx.tasks.sort(&ctx.opts.sort_by);
+    ctx.tasks.sort(if ctx.opts.sort_by.is_none() {
+        &[SortBy::Raw]
+    } else {
+        &ctx.opts.sort_by.as_ref().unwrap()
+    });
     // fill buffer with formatted (colored) output
     format_buffer(buf, &ctx)?;
     // write footer

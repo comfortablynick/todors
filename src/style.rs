@@ -1,6 +1,6 @@
 use crate::{config::AppContext, prelude::*, util::get_pri_name};
 use serde::Deserialize;
-use std::cmp::max;
+
 use termcolor::{Color, ColorSpec};
 
 #[derive(Debug, Deserialize)]
@@ -113,7 +113,8 @@ pub fn format_buffer<W>(buf: &mut W, ctx: &AppContext) -> Result
 where
     W: std::io::Write + termcolor::WriteColor,
 {
-    let leading_zeros = max(2, ctx.task_ct.to_string().len());
+    // let leading_zeros = max(1, ctx.task_ct.to_string().len());
+    let leading_zeros = ctx.task_ct.to_string().len() - 1;
     for task in &*ctx.tasks {
         let line = &task.raw;
         let pri = get_pri_name(u8::from(task.parsed.priority.clone())).unwrap_or_default();
