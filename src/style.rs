@@ -114,7 +114,7 @@ where
     W: std::io::Write + termcolor::WriteColor,
 {
     // let leading_zeros = max(1, ctx.task_ct.to_string().len());
-    let leading_zeros = ctx.task_ct.to_string().len() - 1;
+    let leading_zeros = ctx.task_ct.to_string().len();
     for task in &*ctx.tasks {
         let line = &task.raw;
         let pri = get_pri_name(u8::from(task.parsed.priority.clone())).unwrap_or_default();
@@ -125,6 +125,7 @@ where
         };
         buf.set_color(&color)?;
         // write line number
+        // TODO: why is this leaving out leading zero suddenly?
         write!(buf, "{:0width$} ", task.id, width = leading_zeros)?;
         let mut words = line.split_whitespace().peekable();
         while let Some(word) = words.next() {
